@@ -4,8 +4,8 @@ First: without lambdas.
 
 Terminals: ID, LEFT, RIGHT
 
-atom = ID | LEFT expr RIGHT
-expr = atom | expr atom
+    atom = ID | LEFT expr RIGHT
+    expr = atom | expr atom
 
 """
 import string
@@ -93,6 +93,7 @@ class Parser:
     def __init__(self, tokens):
         self._tokens = iter(tokens)
         self._peeked = None
+        self._stack = []
 
     def peek(self):
         """Return type of the next token, without consuming it."""
@@ -106,38 +107,68 @@ class Parser:
         token, self._peeked = self._peeked, None
         return token
 
+    def shift(self):
+        self._stack.append(self.next())
+
+    def reduce_name(self):
+        _, name = self._stack.pop()
+        self._stack.append(Name(name))
+
+    def reduce_parenthesized(self):
+        self._stack.pop()
+        expr = self._stack.pop()
+        self._stack.pop()
+        self._stack.append(expr)
+
+    def reduce_apply(self):
+        arg = self._stack.pop()
+        function = self._stack.pop()
+        self._stack.append(Apply(function, arg))
+
+    def reduce_goal(self):
+        self._stack.pop()
+        expr = self._stack.pop()
+        self._stack.append(expr)
+
+    def parse_right(self):
+        if self.peek() == RIGHT:
+            self.shift()
+        else:
+            raise ParseError("Expected )")
+
+    def parse_end(self):
+        if self.peek() == END:
+            self.shift()
+        else:
+            raise ParseError("Expected end of string")
+
     def parse_atom(self):
         if self.peek() == ID:
-            token = self.next()
-            return Name(token[1])
+            self.shift()
+            self.reduce_name()
         elif self.peek() == LEFT:
-            self.next()
-            expr = self.parse_expr()
-            if self.peek() == RIGHT:
-                self.next()
-            else:
-                raise ParseError("Expected )")
-            return expr
+            self.shift()
+            self.parse_expr()
+            self.parse_right()
+            self.reduce_parenthesized()
         else:
             raise ParseError()
 
     def parse_expr(self):
-        head = self.parse_atom()
-        while True:
-            if self.peek() in {ID, LEFT}:
-                arg = self.parse_atom()
-                head = Apply(head, arg)
-            else:
-                break
-        return head
+        self.parse_atom()
+        self.parse_trailer()
+
+    def parse_trailer(self):
+        if self.peek() in {ID, LEFT}:
+            self.parse_atom()
+            self.reduce_apply()
+            self.parse_trailer()
 
     def parse_goal(self):
-        expr = self.parse_expr()
-        if self.peek() in {END}:
-            self.next()
-        else:
-            raise ParseError()
-        return expr
+        self.parse_expr()
+        self.parse_end()
+        self.reduce_goal()
+        return self._stack.pop()
 
 
 def parse(s):
@@ -178,6 +209,7 @@ def test_parse_errors():
             pass
         else:
             assert False, "ParseError not raised for {!r}".format(bad_string)
+
 
 test_parse_simple_expressions()
 test_parse_errors()
