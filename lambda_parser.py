@@ -113,7 +113,10 @@ class Parser:
         elif self.peek() == LEFT:
             self.next()
             expr = self.parse_expr()
-            self.next()
+            if self.peek() == RIGHT:
+                self.next()
+            else:
+                raise ParseError("Expected )")
             return expr
         else:
             raise ParseError()
@@ -132,6 +135,8 @@ class Parser:
         expr = self.parse_expr()
         if self.peek() in {END}:
             self.next()
+        else:
+            raise ParseError()
         return expr
 
 
@@ -154,4 +159,25 @@ def test_parse_simple_expressions():
     assert parse("(w x)(y z)") == Apply(Apply(w, x), Apply(y, z))
 
 
+def test_parse_errors():
+    bad_strings = [
+        "",
+        "(",
+        ")",
+        "()",
+        "(x",
+        "x (",
+        "x )",
+        ".",
+        r"\x x",
+    ]
+    for bad_string in bad_strings:
+        try:
+            parse(bad_string)
+        except ParseError:
+            pass
+        else:
+            assert False, "ParseError not raised for {!r}".format(bad_string)
+
 test_parse_simple_expressions()
+test_parse_errors()
