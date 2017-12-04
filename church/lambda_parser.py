@@ -89,7 +89,7 @@ def tokenize(s):
                 raise ParseError("Invalid character in string: {}".format(c))
 
 
-class Parser:
+class RecursiveParser:
     def __init__(self, tokens):
         self._tokens = iter(tokens)
         self._peeked = None
@@ -171,7 +171,76 @@ class Parser:
         return self._stack.pop()
 
 
+ATOM = "atom"
+BEGIN = "begin"
+EXPR = "expr"
+
+
+class ShiftReduceParser(object):
+    """Non-recursive shift-reduce parser for the lambda calculus.
+
+    TODO: lambdas!
+    """
+    def __init__(self, tokens):
+        self._tokens = iter(tokens)
+        self._peeked = None
+        self._stack = []
+
+    def peek(self):
+        """Return type of the next token, without consuming it."""
+        if self._peeked is None:
+            self._peeked = next(self._tokens)
+        return self._peeked[0]
+
+    def next(self):
+        """Get the next token."""
+        self.peek()
+        token, self._peeked = self._peeked, None
+        return token
+
+    def matches(self, *types):
+        if len(self._stack) < len(types):
+            return False
+        trailer = self._stack[len(self._stack) - len(types):]
+        for token, type in zip(trailer, types):
+            if token[0] != type:
+                return False
+        return True
+
+    def parse(self):
+        self._stack.append((BEGIN,))
+        while True:
+            if self.matches(ID):
+                # Reduce: atom -> ID
+                _, name = self._stack.pop()
+                self._stack.append((ATOM, Name(name)))
+            elif self.matches(LEFT, EXPR, RIGHT):
+                # Reduce: LEFT expr RIGHT -> atom
+                self._stack.pop()
+                _, expr = self._stack.pop()
+                self._stack.pop()
+                self._stack.append((ATOM, expr))
+            elif self.matches(EXPR, ATOM):
+                # Reduce: expr -> expr atom
+                _, arg = self._stack.pop()
+                _, fn = self._stack.pop()
+                self._stack.append((EXPR, Apply(fn, arg)))
+            elif self.matches(ATOM):
+                # Reduce: expr -> atom. Important that the
+                # preceding rule takes precedence.
+                _, expr = self._stack.pop()
+                self._stack.append((EXPR, expr))
+            elif self.matches(BEGIN, EXPR, END):
+                self._stack.pop()
+                _, expr = self._stack.pop()
+                return expr
+            elif self.matches(END):
+                # Again, important that the preceding rule
+                # takes precedence.
+                raise ParseError()
+            else:
+                self._stack.append(self.next())
+
+
 def parse(s):
-    return Parser(tokenize(s)).parse_goal()
-
-
+    return ShiftReduceParser(tokenize(s)).parse()

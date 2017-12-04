@@ -33,4 +33,3 @@ class TestLambdaParser(unittest.TestCase):
         for bad_string in bad_strings:
             with self.assertRaises(ParseError):
                 parse(bad_string)
-    
