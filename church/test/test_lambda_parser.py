@@ -12,6 +12,7 @@ class TestLambdaParser(unittest.TestCase):
         self.assertEqual(parse("(x) y"), Apply(x, y))
         self.assertEqual(parse("(x)"), x)
         self.assertEqual(parse("((x))"), x)
+        self.assertEqual(parse("(((x)))"), x)
         self.assertEqual(parse("x y z"), Apply(Apply(x, y), z))
         self.assertEqual(parse("(x y) z"), Apply(Apply(x, y), z))
         self.assertEqual(parse("x (y z)"), Apply(x, Apply(y, z)))
