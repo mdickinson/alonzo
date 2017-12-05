@@ -165,7 +165,8 @@ class SMParser(object):
         self._tokens = iter(tokens)
         self._peeked = None
         self._value_stack = []
-        self._state_stack = [BEGIN]
+        self._state_stack = []
+        self._state = BEGIN
 
     def next(self):
         """Get the next token."""
@@ -183,40 +184,31 @@ class SMParser(object):
 
     def pop(self, n):
         top = self._value_stack[-n:]
+        self._state = self._state_stack[-n]
         del self._value_stack[-n:]
         del self._state_stack[-n:]
         return top
 
     def shift_to(self, next_state, token):
         self._value_stack.append(token)
-        self._state_stack.append(next_state)
-
-    def reduce_id(self, id):
-        return Name(id)
-
-    def reduce_apply(self, fn, arg):
-        return Apply(fn, arg)
-
-    def reduce_parenthesized(self, left, expr, right):
-        return expr
+        self._state_stack.append(self._state)
+        self._state = next_state
 
     def parse(self):
-        while True:
-            state = self._state_stack[-1]
-            if state in transitions:
+        while self._state != ACCEPT:
+            if self._state in transitions:
                 token_type, token_value = self.next()
                 try:
-                    next_state = transitions[state][token_type]
+                    next_state = transitions[self._state][token_type]
                 except KeyError:
                     raise ParseError()
                 self.shift_to(next_state, token_value)
-            elif state in reductions:
-                count, type, reducer = reductions[state]
+            elif self._state in reductions:
+                count, type, reducer = reductions[self._state]
                 self.push_back((type, reducer(*self.pop(count))))
-            elif state == ACCEPT:
-                return self._value_stack.pop()
             else:
                 raise AssertionError("Shouldn't ever get here.")
+        return self._value_stack.pop()
 
 
 def parse(s):
