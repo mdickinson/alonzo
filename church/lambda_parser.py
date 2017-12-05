@@ -93,6 +93,63 @@ def tokenize(s):
                 raise ParseError("Invalid character in string: {}".format(c))
 
 
+class SMParser(object):
+    """State-machine-based shift-reduce parser."""
+    def __init__(self, transitions, reductions, initial_state, accept_state):
+        self.transitions = transitions
+        self.reductions = reductions
+        self.accept_state = accept_state
+        self.initial_state = initial_state
+
+    def next(self):
+        """Get the next token."""
+        if self._peeked is None:
+            return next(self._tokens)
+        else:
+            token, self._peeked = self._peeked, None
+            return token
+
+    def push_back(self, token):
+        if self._peeked is None:
+            self._peeked = token
+        else:
+            raise ValueError("push back space already occupied")
+
+    def pop(self, n):
+        top = self._value_stack[-n:]
+        self._state = self._state_stack[-n]
+        del self._value_stack[-n:]
+        del self._state_stack[-n:]
+        return top
+
+    def shift_to(self, next_state, token):
+        self._value_stack.append(token)
+        self._state_stack.append(self._state)
+        self._state = next_state
+
+    def parse(self, tokens):
+        self._tokens = iter(tokens)
+        self._peeked = None
+        self._value_stack = []
+        self._state_stack = []
+        self._state = self.initial_state
+
+        while self._state != self.accept_state:
+            if self._state in self.transitions:
+                token_type, token_value = self.next()
+                try:
+                    next_state = self.transitions[self._state][token_type]
+                except KeyError:
+                    raise ParseError()
+                self.shift_to(next_state, token_value)
+            elif self._state in self.reductions:
+                count, type, reducer = self.reductions[self._state]
+                self.push_back((type, reducer(*self.pop(count))))
+            else:
+                raise AssertionError("Shouldn't ever get here.")
+        return self._value_stack.pop()
+
+
 BEGIN = "begin"
 EXPR = "expr"
 GOAL = "goal"
@@ -158,62 +215,14 @@ reductions = {
     BEGIN_EXPR_END: (2, GOAL, lambda x, y: x),
 }
 
-# Initial and final states.
-initial_state = BEGIN
-final_state = ACCEPT
 
-
-class SMParser(object):
-    """State-machine-based shift-reduce parser."""
-    def __init__(self, tokens):
-        self._tokens = iter(tokens)
-        self._peeked = None
-        self._value_stack = []
-        self._state_stack = []
-        self._state = initial_state
-
-    def next(self):
-        """Get the next token."""
-        if self._peeked is None:
-            return next(self._tokens)
-        else:
-            token, self._peeked = self._peeked, None
-            return token
-
-    def push_back(self, token):
-        if self._peeked is None:
-            self._peeked = token
-        else:
-            raise ValueError("push back space already occupied")
-
-    def pop(self, n):
-        top = self._value_stack[-n:]
-        self._state = self._state_stack[-n]
-        del self._value_stack[-n:]
-        del self._state_stack[-n:]
-        return top
-
-    def shift_to(self, next_state, token):
-        self._value_stack.append(token)
-        self._state_stack.append(self._state)
-        self._state = next_state
-
-    def parse(self):
-        while self._state != final_state:
-            if self._state in transitions:
-                token_type, token_value = self.next()
-                try:
-                    next_state = transitions[self._state][token_type]
-                except KeyError:
-                    raise ParseError()
-                self.shift_to(next_state, token_value)
-            elif self._state in reductions:
-                count, type, reducer = reductions[self._state]
-                self.push_back((type, reducer(*self.pop(count))))
-            else:
-                raise AssertionError("Shouldn't ever get here.")
-        return self._value_stack.pop()
+parser = SMParser(
+    transitions=transitions,
+    reductions=reductions,
+    initial_state=BEGIN,
+    accept_state=ACCEPT,
+)
 
 
 def parse(s):
-    return SMParser(tokenize(s)).parse()
+    return parser.parse(tokenize(s))
