@@ -63,6 +63,10 @@ class ParseError(Exception):
 
 
 def tokenize(s):
+    """
+    Tokenize the string, generating a stream of pairs
+    of the form (token_type, token_value).
+    """
     chars = iter(s)
     # Our tokenizer is a finite state machine with just two states: either
     # we're parsing an identifier, or we're not.
@@ -79,11 +83,11 @@ def tokenize(s):
                 yield ID, ''.join(id_chars)
                 parsing_id = False
             if c in SINGLE_TOKEN_CHARS:
-                yield SINGLE_TOKEN_CHARS[c],
+                yield SINGLE_TOKEN_CHARS[c], None
             elif c in WHITESPACE:
                 pass
             elif c is None:
-                yield END,
+                yield END, None
                 break
             else:
                 raise ParseError("Invalid character in string: {}".format(c))
