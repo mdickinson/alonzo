@@ -158,6 +158,10 @@ reductions = {
     BEGIN_EXPR_END: (2, GOAL, lambda x, y: x),
 }
 
+# Initial and final states.
+initial_state = BEGIN
+final_state = ACCEPT
+
 
 class SMParser(object):
     """State-machine-based shift-reduce parser."""
@@ -166,7 +170,7 @@ class SMParser(object):
         self._peeked = None
         self._value_stack = []
         self._state_stack = []
-        self._state = BEGIN
+        self._state = initial_state
 
     def next(self):
         """Get the next token."""
@@ -195,7 +199,7 @@ class SMParser(object):
         self._state = next_state
 
     def parse(self):
-        while self._state != ACCEPT:
+        while self._state != final_state:
             if self._state in transitions:
                 token_type, token_value = self.next()
                 try:
