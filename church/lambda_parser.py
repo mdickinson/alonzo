@@ -327,6 +327,14 @@ EXPR_EXPR = (EXPR, EXPR)
 BEGIN_EXPR_END = (BEGIN, EXPR, END)
 LEFT_EXPR_RIGHT = (LEFT, EXPR, END)
 
+# Transition table for shift states.
+transitions = {
+    BEGIN: {LEFT: LEFT, ID: ID, EXPR: BEGIN_EXPR},
+    LEFT: {LEFT: LEFT, ID: ID, EXPR: LEFT_EXPR},
+    BEGIN_EXPR: {LEFT: LEFT, ID: ID, EXPR: EXPR_EXPR, END: BEGIN_EXPR_END},
+    LEFT_EXPR: {LEFT: LEFT, ID: ID, EXPR: EXPR_EXPR, RIGHT: LEFT_EXPR_RIGHT},
+}
+
 
 class SMParser(object):
     """State-machine-based shift-reduce parser."""
@@ -351,9 +359,6 @@ class SMParser(object):
             raise ValueError("push back space already occupied")
 
     def pop(self, n):
-        if n == 0:
-            return []
-
         top = self._stack[-n:]
         del self._stack[-n:]
         del self._state_stack[-n:]
@@ -363,71 +368,42 @@ class SMParser(object):
         self._stack.append(token)
         self._state_stack.append(next_state)
 
+    def reduce_id(self, id):
+        return Name(id)
+
+    def reduce_apply(self, fn, arg):
+        return Apply(fn, arg)
+
+    def reduce_parenthesized(self, left, expr, right):
+        return expr
+
     def parse(self):
         while True:
             state = self._state_stack[-1]
-            if state == BEGIN:
+            if state in {BEGIN, LEFT, BEGIN_EXPR, LEFT_EXPR}:
                 next_token = self.next()
-                if next_token[0] == LEFT:
-                    self.shift_to(LEFT, next_token)
-                elif next_token[0] == ID:
-                    self.shift_to(ID, next_token)
-                elif next_token[0] == EXPR:
-                    self.shift_to(BEGIN_EXPR, next_token)
-                else:
+                token_type = next_token[0]
+                try:
+                    next_state = transitions[state][token_type]
+                except KeyError:
                     raise ParseError()
-            elif state == LEFT:
-                next_token = self.next()
-                if next_token[0] == LEFT:
-                    self.shift_to(LEFT, next_token)
-                elif next_token[0] == ID:
-                    self.shift_to(ID, next_token)
-                elif next_token[0] == EXPR:
-                    self.shift_to(LEFT_EXPR, next_token)
-                else:
-                    raise ParseError()
-            elif state == BEGIN_EXPR:
-                next_token = self.next()
-                if next_token[0] == LEFT:
-                    self.shift_to(LEFT, next_token)
-                elif next_token[0] == ID:
-                    self.shift_to(ID, next_token)
-                elif next_token[0] == EXPR:
-                    self.shift_to(EXPR_EXPR, next_token)
-                elif next_token[0] == END:
-                    self.shift_to(BEGIN_EXPR_END, next_token)
-                else:
-                    raise ParseError()
-            elif state == LEFT_EXPR:
-                next_token = self.next()
-                if next_token[0] == LEFT:
-                    self.shift_to(LEFT, next_token)
-                elif next_token[0] == ID:
-                    self.shift_to(ID, next_token)
-                elif next_token[0] == EXPR:
-                    self.shift_to(EXPR_EXPR, next_token)
-                elif next_token[0] == RIGHT:
-                    self.shift_to(LEFT_EXPR_RIGHT, next_token)
-                else:
-                    raise ParseError("Unexpected token: {!r}".format(
-                        next_token))
-
-            elif state == ID:
-                (_, name), = self.pop(1)
-                expr = Name(name)
-                self.push_back((EXPR, expr))
+                self.shift_to(next_state, next_token)
+            elif state in {ID, EXPR_EXPR, LEFT_EXPR_RIGHT}:
+                if state == ID:
+                    (_, name), = self.pop(1)
+                    expr = EXPR, Name(name)
+                elif state == EXPR_EXPR:
+                    (_, fn), (_, arg) = self.pop(2)
+                    expr = EXPR, Apply(fn, arg)
+                elif state == LEFT_EXPR_RIGHT:
+                    (_, (_, expr), _) = self.pop(3)
+                    expr = EXPR, expr
+                self.push_back(expr)
             elif state == BEGIN_EXPR_END:
                 (_, expr, _) = self.pop(3)
                 return expr[1]
-            elif state == EXPR_EXPR:
-                fn, arg = self.pop(2)
-                app = Apply(fn[1], arg[1])
-                self.push_back((EXPR, app))
-            elif state == LEFT_EXPR_RIGHT:
-                (_, expr, _) = self.pop(3)
-                self.push_back(expr)
             else:
-                raise NotImplementedError("state: {!r}".format(state))
+                raise AssertionError("Shouldn't ever get here.")
 
 
 def parse(s):
