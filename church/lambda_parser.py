@@ -191,27 +191,25 @@ class SMParser(object):
         while True:
             state = self._state_stack[-1]
             if state in {BEGIN, LEFT, BEGIN_EXPR, LEFT_EXPR}:
-                next_token = self.next()
-                token_type = next_token[0]
+                token_type, token_value = self.next()
                 try:
                     next_state = transitions[state][token_type]
                 except KeyError:
                     raise ParseError()
-                self.shift_to(next_state, next_token)
+                self.shift_to(next_state, token_value)
             elif state in {ID, EXPR_EXPR, LEFT_EXPR_RIGHT}:
                 if state == ID:
-                    (_, name), = self.pop(1)
-                    expr = EXPR, Name(name)
+                    name, = self.pop(1)
+                    expr = Name(name)
                 elif state == EXPR_EXPR:
-                    (_, fn), (_, arg) = self.pop(2)
-                    expr = EXPR, Apply(fn, arg)
+                    fn, arg = self.pop(2)
+                    expr = Apply(fn, arg)
                 elif state == LEFT_EXPR_RIGHT:
-                    (_, (_, expr), _) = self.pop(3)
-                    expr = EXPR, expr
-                self.push_back(expr)
+                    _, expr, _ = self.pop(3)
+                self.push_back((EXPR, expr))
             elif state == BEGIN_EXPR_END:
                 expr, _ = self.pop(2)
-                return expr[1]
+                return expr
             else:
                 raise AssertionError("Shouldn't ever get here.")
 
