@@ -95,6 +95,7 @@ def tokenize(s):
 
 BEGIN = "begin"
 EXPR = "expr"
+GOAL = "goal"
 
 """
 States and transitions (symbols are ID, LEFT, RIGHT, END, EXPR)
@@ -103,6 +104,7 @@ BEGIN:
     LEFT -> shift to LEFT
     ID -> shift to ID
     EXPR -> shift to BEGIN_EXPR
+    GOAL -> shift to ACCEPT
 LEFT:
     LEFT -> shift to LEFT
     ID -> shift to ID
@@ -125,12 +127,13 @@ EXPR_EXPR:
 LEFT_EXPR_RIGHT:
     reduce (expr -> (expr) )
 BEGIN_EXPR_END:
-    accept
+    reduce (goal -> expr END)
 
 Need a token stack with push-back, though we only ever need one
 token of push back.
 """
 
+ACCEPT = "accept"
 BEGIN_EXPR = (BEGIN, EXPR)
 LEFT_EXPR = (LEFT, EXPR)
 EXPR_EXPR = (EXPR, EXPR)
@@ -139,10 +142,20 @@ LEFT_EXPR_RIGHT = (LEFT, EXPR, END)
 
 # Transition table for shift states.
 transitions = {
-    BEGIN: {LEFT: LEFT, ID: ID, EXPR: BEGIN_EXPR},
+    BEGIN: {LEFT: LEFT, ID: ID, EXPR: BEGIN_EXPR, GOAL: ACCEPT},
     LEFT: {LEFT: LEFT, ID: ID, EXPR: LEFT_EXPR},
     BEGIN_EXPR: {LEFT: LEFT, ID: ID, EXPR: EXPR_EXPR, END: BEGIN_EXPR_END},
     LEFT_EXPR: {LEFT: LEFT, ID: ID, EXPR: EXPR_EXPR, RIGHT: LEFT_EXPR_RIGHT},
+}
+
+# Reduction states: each state maps to the number of values it
+# consumes followed by the type of token produced by the reduction
+# and the function.
+reductions = {
+    ID: (1, EXPR, Name),
+    EXPR_EXPR: (2, EXPR, Apply),
+    LEFT_EXPR_RIGHT: (3, EXPR, lambda x, y, z: y),
+    BEGIN_EXPR_END: (2, GOAL, lambda x, y: x),
 }
 
 
@@ -190,26 +203,18 @@ class SMParser(object):
     def parse(self):
         while True:
             state = self._state_stack[-1]
-            if state in {BEGIN, LEFT, BEGIN_EXPR, LEFT_EXPR}:
+            if state in transitions:
                 token_type, token_value = self.next()
                 try:
                     next_state = transitions[state][token_type]
                 except KeyError:
                     raise ParseError()
                 self.shift_to(next_state, token_value)
-            elif state in {ID, EXPR_EXPR, LEFT_EXPR_RIGHT}:
-                if state == ID:
-                    name, = self.pop(1)
-                    expr = Name(name)
-                elif state == EXPR_EXPR:
-                    fn, arg = self.pop(2)
-                    expr = Apply(fn, arg)
-                elif state == LEFT_EXPR_RIGHT:
-                    _, expr, _ = self.pop(3)
-                self.push_back((EXPR, expr))
-            elif state == BEGIN_EXPR_END:
-                expr, _ = self.pop(2)
-                return expr
+            elif state in reductions:
+                count, type, reducer = reductions[state]
+                self.push_back((type, reducer(*self.pop(count))))
+            elif state == ACCEPT:
+                return self._value_stack.pop()
             else:
                 raise AssertionError("Shouldn't ever get here.")
 
