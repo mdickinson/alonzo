@@ -93,6 +93,29 @@ def tokenize(s):
                 raise ParseError("Invalid character in string: {}".format(c))
 
 
+class TokenStream(object):
+    """
+    Token stream, with a single push-back slot.
+    """
+    def __init__(self, tokens):
+        self._tail = iter(tokens)
+        # We assume that `None` is not a valid token.
+        self._head = None
+
+    def next(self):
+        if self._head is None:
+            token = next(self._tail)
+        else:
+            token, self._head = self._head, None
+        return token
+
+    def push(self, token):
+        if self._head is None:
+            self._head = token
+        else:
+            raise ValueError("no space to push")
+
+
 class SMParser(object):
     """State-machine-based shift-reduce parser."""
     def __init__(self, transitions, reductions, initial_state, accept_state):
@@ -101,53 +124,30 @@ class SMParser(object):
         self.accept_state = accept_state
         self.initial_state = initial_state
 
-    def next(self):
-        """Get the next token."""
-        if self._peeked is None:
-            return next(self._tokens)
-        else:
-            token, self._peeked = self._peeked, None
-            return token
-
-    def push_back(self, token):
-        if self._peeked is None:
-            self._peeked = token
-        else:
-            raise ValueError("push back space already occupied")
-
-    def pop(self, n):
-        top = self._value_stack[-n:]
-        self._state = self._state_stack[-n]
-        del self._value_stack[-n:]
-        del self._state_stack[-n:]
-        return top
-
-    def shift_to(self, next_state, token):
-        self._value_stack.append(token)
-        self._state_stack.append(self._state)
-        self._state = next_state
-
     def parse(self, tokens):
-        self._tokens = iter(tokens)
-        self._peeked = None
-        self._value_stack = []
-        self._state_stack = []
-        self._state = self.initial_state
-
-        while self._state != self.accept_state:
-            if self._state in self.transitions:
-                token_type, token_value = self.next()
+        tokens = TokenStream(tokens)
+        value_stack = []
+        state_stack = []
+        state = self.initial_state
+        while state != self.accept_state:
+            if state in self.transitions:
+                token_type, token_value = tokens.next()
                 try:
-                    next_state = self.transitions[self._state][token_type]
+                    next_state = self.transitions[state][token_type]
                 except KeyError:
                     raise ParseError()
-                self.shift_to(next_state, token_value)
-            elif self._state in self.reductions:
-                count, type, reducer = self.reductions[self._state]
-                self.push_back((type, reducer(*self.pop(count))))
+                value_stack.append(token_value)
+                state_stack.append(state)
+                state = next_state
+            elif state in self.reductions:
+                count, type, reducer = self.reductions[state]
+                args, value_stack = value_stack[-count:], value_stack[:-count]
+                state, state_stack = state_stack[-count], state_stack[:-count]
+                token = type, reducer(*args)
+                tokens.push(token)
             else:
-                raise AssertionError("Shouldn't ever get here.")
-        return self._value_stack.pop()
+                raise RuntimeError("Unknown state: {!r}".format(state))
+        return value_stack.pop()
 
 
 BEGIN = "begin"
