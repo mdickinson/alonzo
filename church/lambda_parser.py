@@ -151,7 +151,7 @@ class SMParser(object):
     def __init__(self, tokens):
         self._tokens = iter(tokens)
         self._peeked = None
-        self._stack = [BEGIN]
+        self._value_stack = []
         self._state_stack = [BEGIN]
 
     def next(self):
@@ -169,13 +169,13 @@ class SMParser(object):
             raise ValueError("push back space already occupied")
 
     def pop(self, n):
-        top = self._stack[-n:]
-        del self._stack[-n:]
+        top = self._value_stack[-n:]
+        del self._value_stack[-n:]
         del self._state_stack[-n:]
         return top
 
     def shift_to(self, next_state, token):
-        self._stack.append(token)
+        self._value_stack.append(token)
         self._state_stack.append(next_state)
 
     def reduce_id(self, id):
@@ -210,7 +210,7 @@ class SMParser(object):
                     expr = EXPR, expr
                 self.push_back(expr)
             elif state == BEGIN_EXPR_END:
-                (_, expr, _) = self.pop(3)
+                expr, _ = self.pop(2)
                 return expr[1]
             else:
                 raise AssertionError("Shouldn't ever get here.")
