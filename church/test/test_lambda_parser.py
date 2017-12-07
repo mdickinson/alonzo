@@ -25,15 +25,15 @@ class TestLambdaParser(unittest.TestCase):
             (r"\x y.x", Function("x", Function("y", x))),
             (r"(\x y.x)", Function("x", Function("y", x))),
             (r"\x.x(y)", Function("x", Apply(x, y))),
-            (r"\x.x \y.y", Function("x", Apply(x, Function("y", y)))),
+            (r"\x.x\y.y", Function("x", Apply(x, Function("y", y)))),
             (r"\x y.x y", Function("x", Function("y", Apply(x, y)))),
             (r"\x.\y.x", Function("x", Function("y", x))),
             (r"\x y.(x)", Function("x", Function("y", x))),
             (r"\x.\y.x y", Function("x", Function("y", Apply(x, y)))),
-            (r"\x.(\y.x) y", Function("x", Apply(Function("y", x), y))),
-            (r"(\x.\y.x) y", Apply(Function("x", Function("y", x)), y)),
-            (r"x \y. x", Apply(x, Function("y", x))),
-            (r"(x \y. x)", Apply(x, Function("y", x))),
+            (r"\x.(\y.x)y", Function("x", Apply(Function("y", x), y))),
+            (r"(\x.\y.x)y", Apply(Function("x", Function("y", x)), y)),
+            (r"x\y.x", Apply(x, Function("y", x))),
+            (r"(x\y.x)", Apply(x, Function("y", x))),
         ]
         for code, expr in test_pairs:
             self.assertEqual(parse(code), expr)
@@ -52,8 +52,8 @@ class TestLambdaParser(unittest.TestCase):
             ".",
             "x.",
             "(.",
-            r"\ ",
-            r"\\ ",
+            "\\",
+            "\\\\",
             r"\(",
             r"\.",
             r"\)",
@@ -64,7 +64,7 @@ class TestLambdaParser(unittest.TestCase):
             r"\x.)",
             r"\x..",
             r"\x.",
-            r"\x. x.",
+            r"\x.x.",
         ]
         for bad_string in bad_strings:
             with self.assertRaises(ParseError):
