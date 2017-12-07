@@ -135,23 +135,27 @@ class TokenStream(object):
         return token_type
 
 
-# Parser states.
+# Shift states.
 BEGIN = "BEGIN"
 BEGIN_EXPR = "BEGIN_EXPR"
-BEGIN_EXPR_END = "BEGIN_EXPR_END"
-EXPR_ATOM = "EXPR_ATOM"
 SLEFT = "LEFT"
 SLEFT_EXPR = "LEFT_EXPR"
+SLAMBDA = "LAMBDA"
+SLAMBDA_EXPR = "LAMBDA_EXPR"
+SSLASH = "SLASH"
+SSLASH_NAMES = "SLASH_NAMES"
+
+# Reduce states.
+EXPR_ATOM = "EXPR_ATOM"
 SLEFT_EXPR_RIGHT = "LEFT_EXPR_RIGHT"
 SATOM = "ATOM"
 SID = "SID"
-SSLASH = "SLASH"
 SNAMES = "NAMES"
-SSLASH_NAMES = "SLASH_NAMES"
-SLAMBDA = "LAMBDA"
 RLAMBDA = "RLAMBDA"
 SNAMES_ID = "SNAMES_ID"
-SLAMBDA_EXPR = "LAMBDA_EXPR"
+
+# Accept state.
+BEGIN_EXPR_END = "BEGIN_EXPR_END"
 
 
 class SMParser(object):
@@ -403,18 +407,14 @@ class SMParser(object):
                 value, value_stack = value_stack[-2], value_stack[:-3]
                 atom = value
                 tokens.push((ATOM, atom))
+
             elif state == BEGIN_EXPR_END:
                 # Accept.
                 expr, _ = value_stack
                 return expr
+
             else:
-                token_type, token_value = tokens.next()
-                if False:
-                    pass
-                else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
+                raise ValueError("Unknown state: {!r}".format(state))
 
 
 def parse(s):
