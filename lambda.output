@@ -1,0 +1,185 @@
+State 14 conflicts: 3 shift/reduce
+
+
+Grammar
+
+    0 $accept: expr $end
+
+    1 expr: atom
+    2     | expr atom
+
+    3 names: ID
+    4      | names ID
+
+    5 atom: ID
+    6     | '(' expr ')'
+    7     | '\\' names '.' expr
+
+
+Terminals, with rules where they appear
+
+$end (0) 0
+'(' (40) 6
+')' (41) 6
+'.' (46) 7
+'\\' (92) 7
+error (256)
+ID (258) 3 4 5
+
+
+Nonterminals, with rules where they appear
+
+$accept (8)
+    on left: 0
+expr (9)
+    on left: 1 2, on right: 0 2 6 7
+names (10)
+    on left: 3 4, on right: 4 7
+atom (11)
+    on left: 5 6 7, on right: 1 2
+
+
+state 0
+
+    0 $accept: . expr $end
+
+    ID    shift, and go to state 1
+    '('   shift, and go to state 2
+    '\\'  shift, and go to state 3
+
+    expr  go to state 4
+    atom  go to state 5
+
+
+state 1
+
+    5 atom: ID .
+
+    $default  reduce using rule 5 (atom)
+
+
+state 2
+
+    6 atom: '(' . expr ')'
+
+    ID    shift, and go to state 1
+    '('   shift, and go to state 2
+    '\\'  shift, and go to state 3
+
+    expr  go to state 6
+    atom  go to state 5
+
+
+state 3
+
+    7 atom: '\\' . names '.' expr
+
+    ID  shift, and go to state 7
+
+    names  go to state 8
+
+
+state 4
+
+    0 $accept: expr . $end
+    2 expr: expr . atom
+
+    $end  shift, and go to state 9
+    ID    shift, and go to state 1
+    '('   shift, and go to state 2
+    '\\'  shift, and go to state 3
+
+    atom  go to state 10
+
+
+state 5
+
+    1 expr: atom .
+
+    $default  reduce using rule 1 (expr)
+
+
+state 6
+
+    2 expr: expr . atom
+    6 atom: '(' expr . ')'
+
+    ID    shift, and go to state 1
+    '('   shift, and go to state 2
+    ')'   shift, and go to state 11
+    '\\'  shift, and go to state 3
+
+    atom  go to state 10
+
+
+state 7
+
+    3 names: ID .
+
+    $default  reduce using rule 3 (names)
+
+
+state 8
+
+    4 names: names . ID
+    7 atom: '\\' names . '.' expr
+
+    ID   shift, and go to state 12
+    '.'  shift, and go to state 13
+
+
+state 9
+
+    0 $accept: expr $end .
+
+    $default  accept
+
+
+state 10
+
+    2 expr: expr atom .
+
+    $default  reduce using rule 2 (expr)
+
+
+state 11
+
+    6 atom: '(' expr ')' .
+
+    $default  reduce using rule 6 (atom)
+
+
+state 12
+
+    4 names: names ID .
+
+    $default  reduce using rule 4 (names)
+
+
+state 13
+
+    7 atom: '\\' names '.' . expr
+
+    ID    shift, and go to state 1
+    '('   shift, and go to state 2
+    '\\'  shift, and go to state 3
+
+    expr  go to state 14
+    atom  go to state 5
+
+
+state 14
+
+    2 expr: expr . atom
+    7 atom: '\\' names '.' expr .
+
+    ID    shift, and go to state 1
+    '('   shift, and go to state 2
+    '\\'  shift, and go to state 3
+
+    ID        [reduce using rule 7 (atom)]
+    '('       [reduce using rule 7 (atom)]
+    '\\'      [reduce using rule 7 (atom)]
+    $default  reduce using rule 7 (atom)
+
+    atom  go to state 10
