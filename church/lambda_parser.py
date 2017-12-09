@@ -129,26 +129,22 @@ class SMParser(object):
         state_stack = []
         state = 0
 
-        def go_to(next_state):
-            nonlocal state
-            state_stack.append(state)
-            state = next_state
-
         while True:
             token_type, token_value = tokens.next()
             if token_type in {ID, ATOM}:
-                if token_type == ID:
-                    token_value = Name(token_value)
-                value_stack.append(token_value)
+                atom = Name(token_value) if token_type == ID else token_value
+                value_stack.append(atom)
                 if state in {0, 2, 13}:
-                    tokens.push((EXPR, value_stack.pop()))
+                    expr = value_stack.pop()
                 else:
                     state = state_stack.pop()
                     arg = value_stack.pop()
                     fn = value_stack.pop()
-                    tokens.push((EXPR, Apply(fn, arg)))
+                    expr = Apply(fn, arg)
+                tokens.push((EXPR, expr))
             elif token_type == LEFT:
-                go_to(2)
+                state_stack.append(state)
+                state = 2
             elif token_type == SLASH:
                 names = []
                 while True:
@@ -158,15 +154,17 @@ class SMParser(object):
                     names.append(token_value)
                 if names and token_type == DOT:
                     value_stack.append(names)
-                    go_to(13)
+                    state_stack.append(state)
+                    state = 13
                 else:
                     raise ParseError()
-            elif state in {0, 2, 13} and token_type == EXPR:
+            elif token_type == EXPR:
                 value_stack.append(token_value)
-                go_to({0: 4, 2: 6, 13: 14}[state])
-            elif state == 4 and token_type == END:
+                state_stack.append(state)
+                state = {0: 4, 2: 6, 13: 14}[state]
+            elif token_type == END and state == 4:
                 return value_stack.pop()
-            elif state == 6 and token_type == RIGHT:
+            elif token_type == RIGHT and state == 6:
                 state_stack.pop()
                 state = state_stack.pop()
                 tokens.push((ATOM, value_stack.pop()))
