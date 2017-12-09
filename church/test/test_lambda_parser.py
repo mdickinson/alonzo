@@ -67,5 +67,5 @@ class TestLambdaParser(unittest.TestCase):
             r"\x.x.",
         ]
         for bad_string in bad_strings:
-            with self.assertRaises(ParseError):
+            with self.assertRaises(ParseError, msg=repr(bad_string)):
                 parse(bad_string)

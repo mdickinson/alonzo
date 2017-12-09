@@ -64,7 +64,7 @@ END = "end"
 ATOM = "atom"
 EXPR = "expr"
 NAMES = "names"
-
+COMPLETE = "complete"
 
 IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + "_")
 WHITESPACE = set(" \n")
@@ -135,13 +135,14 @@ class TokenStream(object):
         return token_type
 
 
-# Shift states.
-BEGIN = "BEGIN"
-BEGIN_EXPR = "BEGIN_EXPR"
-SLEFT = "LEFT"
-SLEFT_EXPR = "LEFT_EXPR"
-SLAMBDA = "LAMBDA"
-SLAMBDA_EXPR = "LAMBDA_EXPR"
+# Shift states. SBEGIN, SLEFT and SDOT are similar: they differ only in
+# their handling of the COMPLETE token_type.
+SBEGIN = "SBEGIN"
+SDOT = "SDOT"
+SLEFT = "SLEFT"
+SEXPR = "EXPR"
+SBEGIN_COMPLETE = "SBEGIN_COMPLETE"
+SLEFT_COMPLETE = "LEFT_COMPLETE"
 SSLASH = "SLASH"
 SSLASH_NAMES = "SLASH_NAMES"
 
@@ -153,9 +154,10 @@ SID = "SID"
 SNAMES = "NAMES"
 RLAMBDA = "RLAMBDA"
 SNAMES_ID = "SNAMES_ID"
+RCOMPLETE = "RCOMPLETE"
 
 # Accept state.
-BEGIN_EXPR_END = "BEGIN_EXPR_END"
+SBEGIN_COMPLETE_END = "SBEGIN_COMPLETE_END"
 
 
 class SMParser(object):
@@ -165,7 +167,7 @@ class SMParser(object):
         tokens = TokenStream(tokens)
         value_stack = []
         state_stack = []
-        state = BEGIN
+        state = SBEGIN
 
         def shift(next_state):
             state_stack.append(state)
@@ -173,53 +175,25 @@ class SMParser(object):
             return next_state
 
         while True:
-            if state == BEGIN:
+            if state == SBEGIN:
                 token_type, token_value = tokens.next()
                 if token_type == ID:
                     state = shift(SID)
                 elif token_type == LEFT:
                     state = shift(SLEFT)
-                elif token_type == RIGHT:
-                    raise ParseError()
                 elif token_type == SLASH:
                     state = shift(SSLASH)
-                elif token_type == DOT:
-                    raise ParseError()
-                elif token_type == END:
-                    raise ParseError()
-
                 elif token_type == ATOM:
                     state = shift(SATOM)
                 elif token_type == EXPR:
-                    state = shift(BEGIN_EXPR)
-
+                    if tokens.peek_type() in {END, RIGHT}:
+                        state = shift(RCOMPLETE)
+                    else:
+                        state = shift(SEXPR)
+                elif token_type == COMPLETE:
+                    state = shift(SBEGIN_COMPLETE)
                 else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
-
-            elif state == BEGIN_EXPR:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SID)
-                elif token_type == LEFT:
-                    state = shift(SLEFT)
-                elif token_type == RIGHT:
                     raise ParseError()
-                elif token_type == SLASH:
-                    state = shift(SSLASH)
-                elif token_type == DOT:
-                    raise ParseError()
-                elif token_type == END:
-                    state = shift(BEGIN_EXPR_END)
-
-                elif token_type == ATOM:
-                    state = shift(EXPR_ATOM)
-
-                else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
 
             elif state == SLEFT:
                 token_type, token_value = tokens.next()
@@ -227,141 +201,90 @@ class SMParser(object):
                     state = shift(SID)
                 elif token_type == LEFT:
                     state = shift(SLEFT)
-                elif token_type == RIGHT:
-                    raise ParseError()
                 elif token_type == SLASH:
                     state = shift(SSLASH)
-                elif token_type == DOT:
-                    raise ParseError()
-                elif token_type == END:
-                    raise ParseError()
-
                 elif token_type == ATOM:
                     state = shift(SATOM)
                 elif token_type == EXPR:
-                    state = shift(SLEFT_EXPR)
-
+                    if tokens.peek_type() in {END, RIGHT}:
+                        state = shift(RCOMPLETE)
+                    else:
+                        state = shift(SEXPR)
+                elif token_type == COMPLETE:
+                    state = shift(SLEFT_COMPLETE)
                 else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
+                    raise ParseError()
 
-            elif state == SLEFT_EXPR:
+            elif state == SDOT:
                 token_type, token_value = tokens.next()
                 if token_type == ID:
                     state = shift(SID)
                 elif token_type == LEFT:
                     state = shift(SLEFT)
-                elif token_type == RIGHT:
-                    state = shift(SLEFT_EXPR_RIGHT)
                 elif token_type == SLASH:
                     state = shift(SSLASH)
-                elif token_type == DOT:
-                    raise ParseError()
-                elif token_type == END:
+                elif token_type == ATOM:
+                    state = shift(SATOM)
+                elif token_type == EXPR:
+                    if tokens.peek_type() in {END, RIGHT}:
+                        state = shift(RCOMPLETE)
+                    else:
+                        state = shift(SEXPR)
+                elif token_type == COMPLETE:
+                    state = shift(RLAMBDA)
+                else:
                     raise ParseError()
 
+            elif state == SEXPR:
+                token_type, token_value = tokens.next()
+                if token_type == ID:
+                    state = shift(SID)
+                elif token_type == LEFT:
+                    state = shift(SLEFT)
+                elif token_type == SLASH:
+                    state = shift(SSLASH)
                 elif token_type == ATOM:
                     state = shift(EXPR_ATOM)
-
                 else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
+                    raise ParseError()
+
+            elif state == SBEGIN_COMPLETE:
+                token_type, token_value = tokens.next()
+                if token_type == END:
+                    state = shift(SBEGIN_COMPLETE_END)
+                else:
+                    raise ParseError()
+
+            elif state == SLEFT_COMPLETE:
+                token_type, token_value = tokens.next()
+                if token_type == RIGHT:
+                    state = shift(SLEFT_EXPR_RIGHT)
+                else:
+                    raise ParseError()
 
             elif state == SSLASH:
                 token_type, token_value = tokens.next()
                 if token_type == ID:
                     state = shift(SNAMES)
-                elif token_type == LEFT:
-                    raise ParseError()
-                elif token_type == RIGHT:
-                    raise ParseError()
-                elif token_type == SLASH:
-                    raise ParseError()
-                elif token_type == DOT:
-                    raise ParseError()
-                elif token_type == END:
-                    raise ParseError()
-
                 elif token_type == NAMES:
                     state = shift(SSLASH_NAMES)
-
                 else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
+                    raise ParseError()
 
             elif state == SSLASH_NAMES:
                 token_type, token_value = tokens.next()
                 if token_type == ID:
                     state = shift(SNAMES_ID)
-                elif token_type == LEFT:
-                    raise ParseError()
-                elif token_type == RIGHT:
-                    raise ParseError()
-                elif token_type == SLASH:
-                    raise ParseError()
                 elif token_type == DOT:
-                    state = shift(SLAMBDA)
-                elif token_type == END:
-                    raise ParseError()
-
+                    state = shift(SDOT)
                 else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
-
-            elif state == SLAMBDA:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SID)
-                elif token_type == LEFT:
-                    state = shift(SLEFT)
-                elif token_type == RIGHT:
-                    raise ParseError()
-                elif token_type == SLASH:
-                    state = shift(SSLASH)
-                elif token_type == DOT:
-                    raise ParseError()
-                elif token_type == END:
                     raise ParseError()
 
-                elif token_type == ATOM:
-                    state = shift(SATOM)
-                elif token_type == EXPR:
-                    # Need lookahead!
-                    if tokens.peek_type() in {END, RIGHT}:
-                        state = shift(RLAMBDA)
-                    else:
-                        state = shift(SLAMBDA_EXPR)
-                else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
-
-            elif state == SLAMBDA_EXPR:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SID)
-                elif token_type == LEFT:
-                    state = shift(SLEFT)
-                elif token_type == SLASH:
-                    state = shift(SSLASH)
-                elif token_type == DOT:
-                    raise ParseError()
-                # Not possible to have RIGHT or END here, since
-                # we can only reach this state from SLAMBDA, after
-                # lookahead.
-
-                elif token_type == ATOM:
-                    state = shift(EXPR_ATOM)
-
-                else:
-                    raise NotImplementedError(
-                        "token type {!r} in state {!r}".format(
-                            token_type, state))
-
+            elif state == RCOMPLETE:
+                state, state_stack = state_stack[-1], state_stack[:-1]
+                value, value_stack = value_stack[-1], value_stack[:-1]
+                complete = value
+                tokens.push((COMPLETE, complete))
             elif state == SNAMES_ID:
                 # Reduce: names -> names ID
                 state, state_stack = state_stack[-2], state_stack[:-2]
@@ -408,11 +331,9 @@ class SMParser(object):
                 atom = value
                 tokens.push((ATOM, atom))
 
-            elif state == BEGIN_EXPR_END:
-                # Accept.
-                expr, _ = value_stack
-                return expr
-
+            elif state == SBEGIN_COMPLETE_END:
+                # Accept!
+                return value_stack[-2]
             else:
                 raise ValueError("Unknown state: {!r}".format(state))
 
@@ -429,4 +350,12 @@ Grammar
    atom -> ID | LEFT expr RIGHT | SLASH names DOT expr
    expr -> atom | expr atom
 
+A slight adjustment leads to a simpler state table:
+
+   names -> ID | names ID
+   atom -> ID | LEFT complete RIGHT | SLASH names DOT complete
+   expr -> atom | expr atom
+   complete -> expr
+
+Here the goal state is "complete".
 """
