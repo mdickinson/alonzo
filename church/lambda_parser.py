@@ -1,8 +1,3 @@
-# XXX To investigate: don't push None values onto value stack.
-# XXX To investigate: use lookahead in more places, even when
-#     not strictly necessary, to see if it can reduce the
-#     number of states.
-
 import string
 
 
@@ -64,7 +59,6 @@ END = "end"
 ATOM = "atom"
 EXPR = "expr"
 NAMES = "names"
-COMPLETE = "complete"
 
 IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + "_")
 WHITESPACE = set(" \n")
@@ -120,44 +114,10 @@ class TokenStream(object):
         self._head = []
 
     def next(self):
-        return self._head.pop(0) if self._head else next(self._tail)
+        return self._head.pop() if self._head else next(self._tail)
 
     def push(self, token):
-        self._head.insert(0, token)
-
-    def peek(self):
-        token = self.next()
-        self.push(token)
-        return token
-
-    def peek_type(self):
-        token_type, token_value = self.peek()
-        return token_type
-
-
-# Shift states. SBEGIN, SLEFT and SDOT are similar: they differ only in
-# their handling of the COMPLETE token_type.
-SBEGIN = "SBEGIN"
-SDOT = "SDOT"
-SLEFT = "SLEFT"
-SEXPR = "EXPR"
-SBEGIN_COMPLETE = "SBEGIN_COMPLETE"
-SLEFT_COMPLETE = "LEFT_COMPLETE"
-SSLASH = "SLASH"
-SSLASH_NAMES = "SLASH_NAMES"
-
-# Reduce states.
-EXPR_ATOM = "EXPR_ATOM"
-SLEFT_EXPR_RIGHT = "LEFT_EXPR_RIGHT"
-SATOM = "ATOM"
-SID = "SID"
-SNAMES = "NAMES"
-RLAMBDA = "RLAMBDA"
-SNAMES_ID = "SNAMES_ID"
-RCOMPLETE = "RCOMPLETE"
-
-# Accept state.
-SBEGIN_COMPLETE_END = "SBEGIN_COMPLETE_END"
+        self._head.append(token)
 
 
 class SMParser(object):
@@ -167,7 +127,7 @@ class SMParser(object):
         tokens = TokenStream(tokens)
         value_stack = []
         state_stack = []
-        state = SBEGIN
+        state = 0
 
         def shift(next_state):
             state_stack.append(state)
@@ -175,165 +135,175 @@ class SMParser(object):
             return next_state
 
         while True:
-            if state == SBEGIN:
+            if state == 0:
+                # Beginning of string; expect an expression.
                 token_type, token_value = tokens.next()
                 if token_type == ID:
-                    state = shift(SID)
+                    state = shift(1)
                 elif token_type == LEFT:
-                    state = shift(SLEFT)
+                    state = shift(2)
                 elif token_type == SLASH:
-                    state = shift(SSLASH)
-                elif token_type == ATOM:
-                    state = shift(SATOM)
+                    state = shift(3)
                 elif token_type == EXPR:
-                    if tokens.peek_type() in {END, RIGHT}:
-                        state = shift(RCOMPLETE)
-                    else:
-                        state = shift(SEXPR)
-                elif token_type == COMPLETE:
-                    state = shift(SBEGIN_COMPLETE)
-                else:
-                    raise ParseError()
-
-            elif state == SLEFT:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SID)
-                elif token_type == LEFT:
-                    state = shift(SLEFT)
-                elif token_type == SLASH:
-                    state = shift(SSLASH)
+                    state = shift(4)
                 elif token_type == ATOM:
-                    state = shift(SATOM)
-                elif token_type == EXPR:
-                    if tokens.peek_type() in {END, RIGHT}:
-                        state = shift(RCOMPLETE)
-                    else:
-                        state = shift(SEXPR)
-                elif token_type == COMPLETE:
-                    state = shift(SLEFT_COMPLETE)
+                    state = shift(5)
                 else:
                     raise ParseError()
 
-            elif state == SDOT:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SID)
-                elif token_type == LEFT:
-                    state = shift(SLEFT)
-                elif token_type == SLASH:
-                    state = shift(SSLASH)
-                elif token_type == ATOM:
-                    state = shift(SATOM)
-                elif token_type == EXPR:
-                    if tokens.peek_type() in {END, RIGHT}:
-                        state = shift(RCOMPLETE)
-                    else:
-                        state = shift(SEXPR)
-                elif token_type == COMPLETE:
-                    state = shift(RLAMBDA)
-                else:
-                    raise ParseError()
-
-            elif state == SEXPR:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SID)
-                elif token_type == LEFT:
-                    state = shift(SLEFT)
-                elif token_type == SLASH:
-                    state = shift(SSLASH)
-                elif token_type == ATOM:
-                    state = shift(EXPR_ATOM)
-                else:
-                    raise ParseError()
-
-            elif state == SBEGIN_COMPLETE:
-                token_type, token_value = tokens.next()
-                if token_type == END:
-                    state = shift(SBEGIN_COMPLETE_END)
-                else:
-                    raise ParseError()
-
-            elif state == SLEFT_COMPLETE:
-                token_type, token_value = tokens.next()
-                if token_type == RIGHT:
-                    state = shift(SLEFT_EXPR_RIGHT)
-                else:
-                    raise ParseError()
-
-            elif state == SSLASH:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SNAMES)
-                elif token_type == NAMES:
-                    state = shift(SSLASH_NAMES)
-                else:
-                    raise ParseError()
-
-            elif state == SSLASH_NAMES:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(SNAMES_ID)
-                elif token_type == DOT:
-                    state = shift(SDOT)
-                else:
-                    raise ParseError()
-
-            elif state == RCOMPLETE:
+            elif state == 1:
+                # Reduce ID to ATOM
                 state, state_stack = state_stack[-1], state_stack[:-1]
                 value, value_stack = value_stack[-1], value_stack[:-1]
-                complete = value
-                tokens.push((COMPLETE, complete))
-            elif state == SNAMES_ID:
+                atom = Name(value)
+                tokens.push((ATOM, atom))
+
+            elif state == 2:
+                # After a LEFT: expect an expression.
+                token_type, token_value = tokens.next()
+                if token_type == ID:
+                    state = shift(1)
+                elif token_type == LEFT:
+                    state = shift(2)
+                elif token_type == SLASH:
+                    state = shift(3)
+                elif token_type == EXPR:
+                    state = shift(6)
+                elif token_type == ATOM:
+                    state = shift(5)
+                else:
+                    raise ParseError()
+
+            elif state == 3:
+                # After a slash; expecting names.
+                token_type, token_value = tokens.next()
+                if token_type == ID:
+                    state = shift(7)
+                elif token_type == NAMES:
+                    state = shift(8)
+                else:
+                    raise ParseError()
+
+            elif state == 4:
+                # BEGIN EXPR
+                token_type, token_value = tokens.next()
+                if token_type == END:
+                    state = shift(9)
+                elif token_type == ID:
+                    state = shift(1)
+                elif token_type == LEFT:
+                    state = shift(2)
+                elif token_type == SLASH:
+                    state = shift(3)
+                elif token_type == ATOM:
+                    state = shift(10)
+                else:
+                    raise ParseError(
+                        "Token of type {} in state {}".format(
+                            token_type, state))
+
+            elif state == 5:
+                # Reduce: expr -> atom
+                state, state_stack = state_stack[-1], state_stack[:-1]
+                value, value_stack = value_stack[-1], value_stack[:-1]
+                expr = value
+                tokens.push((EXPR, expr))
+
+            elif state == 6:
+                token_type, token_value = tokens.next()
+                if token_type == ID:
+                    state = shift(1)
+                elif token_type == LEFT:
+                    state = shift(2)
+                elif token_type == RIGHT:
+                    state = shift(11)
+                elif token_type == SLASH:
+                    state = shift(3)
+                elif token_type == ATOM:
+                    state = shift(10)
+                else:
+                    raise ParseError()
+
+            elif state == 7:
+                # Reduce: names -> ID
+                state, state_stack = state_stack[-1], state_stack[:-1]
+                value, value_stack = value_stack[-1], value_stack[:-1]
+                names = [value]
+                tokens.push((NAMES, names))
+
+            elif state == 8:
+                token_type, token_value = tokens.next()
+                if token_type == ID:
+                    state = shift(12)
+                elif token_type == DOT:
+                    state = shift(13)
+                else:
+                    raise ParseError()
+
+            elif state == 9:
+                # accept
+                return value_stack[-2]
+
+            elif state == 10:
+                # Reduce: expr -> expr atom
+                state, state_stack = state_stack[-2], state_stack[:-2]
+                values, value_stack = value_stack[-2:], value_stack[:-2]
+                expr = Apply(values[0], values[1])
+                tokens.push((EXPR, expr))
+
+            elif state == 11:
+                # Reduce: expr -> ( expr )
+                state, state_stack = state_stack[-3], state_stack[:-3]
+                value, value_stack = value_stack[-2], value_stack[:-3]
+                atom = value
+                tokens.push((ATOM, atom))
+
+            elif state == 12:
                 # Reduce: names -> names ID
                 state, state_stack = state_stack[-2], state_stack[:-2]
                 values, value_stack = value_stack[-2:], value_stack[:-2]
                 names, name = values
                 names.append(name)
                 tokens.push((NAMES, names))
-            elif state == RLAMBDA:
-                # Reduce: atom -> SLASH names DOT expr
-                state, state_stack = state_stack[-4], state_stack[:-4]
-                values, value_stack = value_stack[-4:], value_stack[:-4]
-                _, names, _, atom = values
-                while names:
-                    atom = Function(names.pop(), atom)
-                tokens.push((ATOM, atom))
-            elif state == SNAMES:
-                # Reduce: names -> ID
-                state, state_stack = state_stack[-1], state_stack[:-1]
-                value, value_stack = value_stack[-1], value_stack[:-1]
-                names = [value]
-                tokens.push((NAMES, names))
-            elif state == SID:
-                # Reduce: atom -> ID
-                state, state_stack = state_stack[-1], state_stack[:-1]
-                value, value_stack = value_stack[-1], value_stack[:-1]
-                atom = Name(value)
-                tokens.push((ATOM, atom))
-            elif state == SATOM:
-                # Reduce: expr -> atom
-                state, state_stack = state_stack[-1], state_stack[:-1]
-                value, value_stack = value_stack[-1], value_stack[:-1]
-                expr = value
-                tokens.push((EXPR, expr))
-            elif state == EXPR_ATOM:
-                # Reduce: expr -> expr atom
-                state, state_stack = state_stack[-2], state_stack[:-2]
-                values, value_stack = value_stack[-2:], value_stack[:-2]
-                expr = Apply(values[0], values[1])
-                tokens.push((EXPR, expr))
-            elif state == SLEFT_EXPR_RIGHT:
-                # Reduce: expr -> LEFT expr RIGHT
-                state, state_stack = state_stack[-3], state_stack[:-3]
-                value, value_stack = value_stack[-2], value_stack[:-3]
-                atom = value
-                tokens.push((ATOM, atom))
 
-            elif state == SBEGIN_COMPLETE_END:
-                # Accept!
-                return value_stack[-2]
+            elif state == 13:
+                token_type, token_value = tokens.next()
+                if token_type == ID:
+                    state = shift(1)
+                elif token_type == LEFT:
+                    state = shift(2)
+                elif token_type == SLASH:
+                    state = shift(3)
+                elif token_type == EXPR:
+                    state = shift(14)
+                elif token_type == ATOM:
+                    state = shift(5)
+                else:
+                    raise ParseError()
+
+            elif state == 14:
+                # The interesting one: a mix of shift and reduce. This is
+                # the one that needs lookahead.
+                token_type, token_value = tokens.next()
+                if token_type == ID:
+                    state = shift(1)
+                elif token_type == LEFT:
+                    state = shift(2)
+                elif token_type == SLASH:
+                    state = shift(3)
+                elif token_type == ATOM:
+                    state = shift(10)
+                else:
+                    # push back! effectively, lookahead
+                    tokens.push((token_type, token_value))
+                    # Reduce: atom -> SLASH names DOT expr
+                    state, state_stack = state_stack[-4], state_stack[:-4]
+                    values, value_stack = value_stack[-4:], value_stack[:-4]
+                    _, names, _, atom = values
+                    while names:
+                        atom = Function(names.pop(), atom)
+                    tokens.push((ATOM, atom))
+
             else:
                 raise ValueError("Unknown state: {!r}".format(state))
 
@@ -341,21 +311,3 @@ class SMParser(object):
 def parse(s):
     tokens = tokenize(s)
     return SMParser().parse(tokens)
-
-
-"""
-Grammar
-
-   names -> ID | names ID
-   atom -> ID | LEFT expr RIGHT | SLASH names DOT expr
-   expr -> atom | expr atom
-
-A slight adjustment leads to a simpler state table:
-
-   names -> ID | names ID
-   atom -> ID | LEFT complete RIGHT | SLASH names DOT complete
-   expr -> atom | expr atom
-   complete -> expr
-
-Here the goal state is "complete".
-"""
