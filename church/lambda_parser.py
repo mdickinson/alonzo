@@ -129,183 +129,58 @@ class SMParser(object):
         state_stack = []
         state = 0
 
-        def shift(next_state):
+        def go_to(next_state):
+            nonlocal state
             state_stack.append(state)
-            value_stack.append(token_value)
-            return next_state
+            state = next_state
 
         while True:
-            if state == 0:
-                # Beginning of string; expect an expression.
-                token_type, token_value = tokens.next()
+            token_type, token_value = tokens.next()
+            if token_type in {ID, ATOM}:
                 if token_type == ID:
-                    state = shift(1)
-                elif token_type == LEFT:
-                    state = shift(2)
-                elif token_type == SLASH:
-                    state = shift(3)
-                elif token_type == EXPR:
-                    state = shift(4)
-                elif token_type == ATOM:
-                    state = shift(5)
+                    token_value = Name(token_value)
+                value_stack.append(token_value)
+                if state in {0, 2, 13}:
+                    tokens.push((EXPR, value_stack.pop()))
+                else:
+                    state = state_stack.pop()
+                    arg = value_stack.pop()
+                    fn = value_stack.pop()
+                    tokens.push((EXPR, Apply(fn, arg)))
+            elif token_type == LEFT:
+                go_to(2)
+            elif token_type == SLASH:
+                names = []
+                while True:
+                    token_type, token_value = tokens.next()
+                    if token_type != ID:
+                        break
+                    names.append(token_value)
+                if names and token_type == DOT:
+                    value_stack.append(names)
+                    go_to(13)
                 else:
                     raise ParseError()
-
-            elif state == 1:
-                # Reduce ID to ATOM
-                state, state_stack = state_stack[-1], state_stack[:-1]
-                value, value_stack = value_stack[-1], value_stack[:-1]
-                atom = Name(value)
-                tokens.push((ATOM, atom))
-
-            elif state == 2:
-                # After a LEFT: expect an expression.
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(1)
-                elif token_type == LEFT:
-                    state = shift(2)
-                elif token_type == SLASH:
-                    state = shift(3)
-                elif token_type == EXPR:
-                    state = shift(6)
-                elif token_type == ATOM:
-                    state = shift(5)
-                else:
-                    raise ParseError()
-
-            elif state == 3:
-                # After a slash; expecting names.
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(7)
-                elif token_type == NAMES:
-                    state = shift(8)
-                else:
-                    raise ParseError()
-
-            elif state == 4:
-                # BEGIN EXPR
-                token_type, token_value = tokens.next()
-                if token_type == END:
-                    state = shift(9)
-                elif token_type == ID:
-                    state = shift(1)
-                elif token_type == LEFT:
-                    state = shift(2)
-                elif token_type == SLASH:
-                    state = shift(3)
-                elif token_type == ATOM:
-                    state = shift(10)
-                else:
-                    raise ParseError(
-                        "Token of type {} in state {}".format(
-                            token_type, state))
-
-            elif state == 5:
-                # Reduce: expr -> atom
-                state, state_stack = state_stack[-1], state_stack[:-1]
-                value, value_stack = value_stack[-1], value_stack[:-1]
-                expr = value
-                tokens.push((EXPR, expr))
-
-            elif state == 6:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(1)
-                elif token_type == LEFT:
-                    state = shift(2)
-                elif token_type == RIGHT:
-                    state = shift(11)
-                elif token_type == SLASH:
-                    state = shift(3)
-                elif token_type == ATOM:
-                    state = shift(10)
-                else:
-                    raise ParseError()
-
-            elif state == 7:
-                # Reduce: names -> ID
-                state, state_stack = state_stack[-1], state_stack[:-1]
-                value, value_stack = value_stack[-1], value_stack[:-1]
-                names = [value]
-                tokens.push((NAMES, names))
-
-            elif state == 8:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(12)
-                elif token_type == DOT:
-                    state = shift(13)
-                else:
-                    raise ParseError()
-
-            elif state == 9:
-                # accept
-                return value_stack[-2]
-
-            elif state == 10:
-                # Reduce: expr -> expr atom
-                state, state_stack = state_stack[-2], state_stack[:-2]
-                values, value_stack = value_stack[-2:], value_stack[:-2]
-                expr = Apply(values[0], values[1])
-                tokens.push((EXPR, expr))
-
-            elif state == 11:
-                # Reduce: expr -> ( expr )
-                state, state_stack = state_stack[-3], state_stack[:-3]
-                value, value_stack = value_stack[-2], value_stack[:-3]
-                atom = value
-                tokens.push((ATOM, atom))
-
-            elif state == 12:
-                # Reduce: names -> names ID
-                state, state_stack = state_stack[-2], state_stack[:-2]
-                values, value_stack = value_stack[-2:], value_stack[:-2]
-                names, name = values
-                names.append(name)
-                tokens.push((NAMES, names))
-
-            elif state == 13:
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(1)
-                elif token_type == LEFT:
-                    state = shift(2)
-                elif token_type == SLASH:
-                    state = shift(3)
-                elif token_type == EXPR:
-                    state = shift(14)
-                elif token_type == ATOM:
-                    state = shift(5)
-                else:
-                    raise ParseError()
-
+            elif state in {0, 2, 13} and token_type == EXPR:
+                value_stack.append(token_value)
+                go_to({0: 4, 2: 6, 13: 14}[state])
+            elif state == 4 and token_type == END:
+                return value_stack.pop()
+            elif state == 6 and token_type == RIGHT:
+                state_stack.pop()
+                state = state_stack.pop()
+                tokens.push((ATOM, value_stack.pop()))
             elif state == 14:
-                # The interesting one: a mix of shift and reduce. This is
-                # the one that needs lookahead.
-                token_type, token_value = tokens.next()
-                if token_type == ID:
-                    state = shift(1)
-                elif token_type == LEFT:
-                    state = shift(2)
-                elif token_type == SLASH:
-                    state = shift(3)
-                elif token_type == ATOM:
-                    state = shift(10)
-                else:
-                    # push back! effectively, lookahead
-                    tokens.push((token_type, token_value))
-                    # Reduce: atom -> SLASH names DOT expr
-                    state, state_stack = state_stack[-4], state_stack[:-4]
-                    values, value_stack = value_stack[-4:], value_stack[:-4]
-                    _, names, _, atom = values
-                    while names:
-                        atom = Function(names.pop(), atom)
-                    tokens.push((ATOM, atom))
-
+                state_stack.pop()
+                state = state_stack.pop()
+                atom = value_stack.pop()
+                names = value_stack.pop()
+                while names:
+                    atom = Function(names.pop(), atom)
+                tokens.push((token_type, token_value))
+                tokens.push((ATOM, atom))
             else:
-                raise ValueError("Unknown state: {!r}".format(state))
+                raise ParseError()
 
 
 def parse(s):
