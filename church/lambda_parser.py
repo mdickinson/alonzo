@@ -57,8 +57,6 @@ END = "end"
 
 # Token types: non-terminals
 ATOM = "atom"
-EXPR = "expr"
-NAMES = "names"
 
 IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + "_")
 WHITESPACE = set(" \n")
@@ -120,67 +118,67 @@ class TokenStream(object):
         self._head.append(token)
 
 
-class SMParser(object):
-    """State-machine-based shift-reduce parser."""
+SSTART = "start"
+SLEFT = "left"
+SDOT = "dot"
 
-    def parse(self, tokens):
-        tokens = TokenStream(tokens)
-        value_stack = []
-        state_stack = []
-        state = 0
+SSTART_EXPR = "start-expr"
+SLEFT_EXPR = "left-expr"
+SDOT_EXPR = "dot-expr"
 
-        while True:
-            token_type, token_value = tokens.next()
-            if token_type in {ID, ATOM}:
-                atom = Name(token_value) if token_type == ID else token_value
-                value_stack.append(atom)
-                if state in {0, 2, 13}:
-                    expr = value_stack.pop()
-                else:
-                    state = state_stack.pop()
-                    arg = value_stack.pop()
-                    fn = value_stack.pop()
-                    expr = Apply(fn, arg)
-                tokens.push((EXPR, expr))
-            elif token_type == LEFT:
-                state_stack.append(state)
-                state = 2
-            elif token_type == SLASH:
-                names = []
-                while True:
-                    token_type, token_value = tokens.next()
-                    if token_type != ID:
-                        break
-                    names.append(token_value)
-                if names and token_type == DOT:
-                    value_stack.append(names)
-                    state_stack.append(state)
-                    state = 13
-                else:
-                    raise ParseError()
-            elif token_type == EXPR:
-                value_stack.append(token_value)
-                state_stack.append(state)
-                state = {0: 4, 2: 6, 13: 14}[state]
-            elif token_type == END and state == 4:
-                return value_stack.pop()
-            elif token_type == RIGHT and state == 6:
-                state_stack.pop()
-                state = state_stack.pop()
-                tokens.push((ATOM, value_stack.pop()))
-            elif state == 14:
-                state_stack.pop()
-                state = state_stack.pop()
-                atom = value_stack.pop()
-                names = value_stack.pop()
-                while names:
-                    atom = Function(names.pop(), atom)
-                tokens.push((token_type, token_value))
-                tokens.push((ATOM, atom))
+SEXPR = "-expr"
+
+
+def lambda_parser(tokens):
+    """
+    Parse a token stream into a lambda expression.
+    """
+    states = []
+    state = SSTART
+    values = []
+    while True:
+        token_type, token_value = tokens.next()
+        if token_type == END and state == SSTART_EXPR:
+            return values.pop()
+        elif token_type == ID:
+            tokens.push((ATOM, Name(token_value)))
+        elif token_type in ATOM:
+            if state in {SSTART, SLEFT, SDOT}:
+                states.append(state)
+                state += SEXPR
+                values.append(token_value)
+            else:
+                values.append(Apply(values.pop(), token_value))
+        elif token_type == LEFT:
+            states.append(state)
+            state = SLEFT
+        elif token_type == SLASH:
+            names = []
+            while True:
+                token_type, token_value = tokens.next()
+                if token_type != ID:
+                    break
+                names.append(token_value)
+            if names and token_type == DOT:
+                values.append(names)
+                states.append(state)
+                state = SDOT
             else:
                 raise ParseError()
+        elif token_type == RIGHT and state == SLEFT_EXPR:
+            _, state = states.pop(), states.pop()
+            tokens.push((ATOM, values.pop()))
+        elif state == SDOT_EXPR:
+            _, state = states.pop(), states.pop()
+            atom, names = values.pop(), values.pop()
+            while names:
+                atom = Function(names.pop(), atom)
+            tokens.push((token_type, token_value))
+            tokens.push((ATOM, atom))
+        else:
+            raise ParseError("Unexpected token {!r} in state {!r}".format(
+                token_type, state))
 
 
 def parse(s):
-    tokens = tokenize(s)
-    return SMParser().parse(tokens)
+    return lambda_parser(TokenStream(tokenize(s)))
