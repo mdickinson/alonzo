@@ -1,7 +1,13 @@
 import string
 
 
-class Apply(object):
+# Classes providing the AST for the parsed expressions.
+
+class LambdaAST(object):
+    pass
+
+
+class Apply(LambdaAST):
     def __init__(self, function, argument):
         self.function = function
         self.argument = argument
@@ -17,7 +23,7 @@ class Apply(object):
         )
 
 
-class Name(object):
+class Name(LambdaAST):
     def __init__(self, name):
         self.name = name
 
@@ -31,7 +37,7 @@ class Name(object):
         )
 
 
-class Function(object):
+class Function(LambdaAST):
     def __init__(self, name, body):
         self.name = name
         self.body = body
