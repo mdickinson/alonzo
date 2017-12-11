@@ -97,6 +97,13 @@ class TestLambdaParser(unittest.TestCase):
             expected = Function("x", expected)
         self.assertTrue(expressions_equal(parse(code), expected))
 
+        # Pattern: "\x x x.x".
+        code = r"\x" + " x"*(repeats-1) + ".x"
+        expected = x
+        for _ in range(repeats):
+            expected = Function("x", expected)
+        self.assertTrue(expressions_equal(parse(code), expected))
+
     def test_parse_errors(self):
         bad_strings = [
             "",
