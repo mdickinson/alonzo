@@ -143,8 +143,7 @@ def lambda_parser(tokens):
         elif token_type == ID:
             tokens.push((ATOM, Name(token_value)))
         elif token_type in ATOM:
-            if state in {SSTART, SLEFT, SDOT}:
-                states.append(state)
+            if state in {SDOT, SLEFT, SSTART}:
                 state += SEXPR
                 values.append(token_value)
             else:
@@ -166,10 +165,10 @@ def lambda_parser(tokens):
             else:
                 raise ParseError()
         elif token_type == RIGHT and state == SLEFT_EXPR:
-            _, state = states.pop(), states.pop()
+            state = states.pop()
             tokens.push((ATOM, values.pop()))
         elif state == SDOT_EXPR:
-            _, state = states.pop(), states.pop()
+            state = states.pop()
             atom, names = values.pop(), values.pop()
             while names:
                 atom = Function(names.pop(), atom)
