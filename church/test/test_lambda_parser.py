@@ -3,6 +3,31 @@ import unittest
 from church.lambda_parser import Apply, Function, Name, parse, ParseError
 
 
+def expressions_equal(self, other):
+    """
+    Nonrecursive equality test, used for comparing deeply nested structures.
+    """
+    # List of pairs still to compare.
+    to_compare = [(self, other)]
+    while to_compare:
+        expr0, expr1 = to_compare.pop()
+        if type(expr0) != type(expr1):
+            return False
+        elif isinstance(expr0, Name):
+            if expr0.name != expr1.name:
+                return False
+        elif isinstance(expr0, Function):
+            if expr0.name != expr1.name:
+                return False
+            to_compare.append((expr0.body, expr1.body))
+        elif isinstance(expr0, Apply):
+            to_compare.append((expr0.argument, expr1.argument))
+            to_compare.append((expr0.function, expr1.function))
+        else:
+            return False
+    return True
+
+
 class TestLambdaParser(unittest.TestCase):
     def test_parse_simple_expressions(self):
         w, x, y, z = map(Name, "wxyz")
@@ -37,6 +62,47 @@ class TestLambdaParser(unittest.TestCase):
         ]
         for code, expr in test_pairs:
             self.assertEqual(parse(code), expr)
+            self.assertTrue(expressions_equal(parse(code), expr))
+
+    def test_deeply_nested_constructs(self):
+        # Check for performance problems and uses of Python recursion.
+        x = Name("x")
+        repeats = 20000
+
+        # Pattern: "x x x x"
+        code = "x" + " x"*repeats
+        expected = x
+        for _ in range(repeats):
+            expected = Apply(expected, x)
+        self.assertTrue(expressions_equal(parse(code), expected))
+
+        # Pattern: "(((x)x)x)x"
+        code = "("*repeats + "x" + ")x"*repeats
+        expected = x
+        for _ in range(repeats):
+            expected = Apply(expected, x)
+        self.assertTrue(expressions_equal(parse(code), expected))
+
+        # Pattern: "x(x(x(x)))
+        code = "x("*repeats + "x" + ")"*repeats
+        expected = x
+        for _ in range(repeats):
+            expected = Apply(x, expected)
+        self.assertTrue(expressions_equal(parse(code), expected))
+
+        # Pattern: "\x.\x.\x.x"
+        code = r"\x."*repeats + "x"
+        expected = x
+        for _ in range(repeats):
+            expected = Function("x", expected)
+        self.assertTrue(expressions_equal(parse(code), expected))
+
+        # Pattern: "\x x x.x".
+        code = r"\x" + " x"*(repeats-1) + ".x"
+        expected = x
+        for _ in range(repeats):
+            expected = Function("x", expected)
+        self.assertTrue(expressions_equal(parse(code), expected))
 
     def test_parse_errors(self):
         bad_strings = [
