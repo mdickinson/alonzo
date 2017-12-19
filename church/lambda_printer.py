@@ -87,6 +87,7 @@ LEADING = "leading"
 TOP = "top"  # top level, or just inside some parentheses.
 TRAILING = "trailing"
 MIDDLE = "middle"
+NAMES = "names"
 
 # Token types.
 DOT = "dot"
@@ -106,6 +107,13 @@ def unparse(expr):
         state, expr = to_do.pop()
         if state == RIGHT:
             yield RIGHT, None
+        elif state == LEFT:
+            yield LEFT, None
+        elif state == NAMES:
+            yield SLASH, None
+            for name in expr:
+                yield ID, name
+            yield DOT, None
         elif type(expr) == Name:
             yield ID, expr.name
         elif type(expr) == Apply:
@@ -114,24 +122,20 @@ def unparse(expr):
                 to_do.append((new_state, expr.argument))
                 to_do.append((LEADING, expr.function))
             else:
-                yield LEFT, None
                 to_do.append((RIGHT, None))
                 to_do.append((TOP, expr))
+                to_do.append((LEFT, None))
         elif type(expr) == Function:
             if state in {TOP, TRAILING}:
                 body, names = expr, []
                 while type(body) == Function:
                     names.append(body.name)
                     body = body.body
-
-                yield SLASH, None
-                for name in names:
-                    yield ID, name
-                yield DOT, None
                 to_do.append((TOP, body))
+                to_do.append((NAMES, names))
             else:
-                yield LEFT, None
                 to_do.append((RIGHT, None))
                 to_do.append((TOP, expr))
+                to_do.append((LEFT, None))
         else:
             assert False, "should never get here"
