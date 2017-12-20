@@ -4,7 +4,26 @@ from church.token import Token, tokenize, TokenType
 # Classes providing the AST for the parsed expressions.
 
 class LambdaAST(object):
-    pass
+    def __eq__(self, other):
+        # Non-recursive equality check.
+        to_compare = [(self, other)]
+        while to_compare:
+            expr0, expr1 = to_compare.pop()
+            if type(expr0) != type(expr1):
+                return False
+            elif isinstance(expr0, Name):
+                if expr0.name != expr1.name:
+                    return False
+            elif isinstance(expr0, Function):
+                if expr0.name != expr1.name:
+                    return False
+                to_compare.append((expr0.body, expr1.body))
+            elif isinstance(expr0, Apply):
+                to_compare.append((expr0.argument, expr1.argument))
+                to_compare.append((expr0.function, expr1.function))
+            else:
+                return False
+        return True
 
 
 class Apply(LambdaAST):
@@ -15,13 +34,6 @@ class Apply(LambdaAST):
     def __repr__(self):
         return "Apply({!r}, {!r})".format(self.function, self.argument)
 
-    def __eq__(self, other):
-        return (
-            type(self) == type(other)
-            and self.function == other.function
-            and self.argument == other.argument
-        )
-
 
 class Name(LambdaAST):
     def __init__(self, name):
@@ -29,12 +41,6 @@ class Name(LambdaAST):
 
     def __repr__(self):
         return "Name({!r})".format(self.name)
-
-    def __eq__(self, other):
-        return (
-            type(self) == type(other)
-            and self.name == other.name
-        )
 
 
 class Function(LambdaAST):
@@ -44,13 +50,6 @@ class Function(LambdaAST):
 
     def __repr__(self):
         return "Function({!r}, {!r})".format(self.name, self.body)
-
-    def __eq__(self, other):
-        return (
-            type(self) == type(other)
-            and self.name == other.name
-            and self.body == other.body
-        )
 
 
 #: Extra non-terminal token type.
