@@ -11,7 +11,7 @@ from church.token import (
 
 # Classes providing the AST for the parsed expressions.
 
-class AST(object):
+class Ast:
     def __eq__(self, other):
         # Non-recursive equality check.
         to_compare = [(self, other)]
@@ -34,30 +34,31 @@ class AST(object):
         return True
 
 
-class Apply(AST):
+class Apply(Ast):
     def __init__(self, function, argument):
+        if not isinstance(function, Ast):
+            raise TypeError("function should be an instance of Ast")
+        if not isinstance(argument, Ast):
+            raise TypeError("argument should be an instance of Ast")
         self.function = function
         self.argument = argument
 
-    def __repr__(self):
-        return "Apply({!r}, {!r})".format(self.function, self.argument)
 
-
-class Name(AST):
+class Name(Ast):
     def __init__(self, name):
+        if not isinstance(name, str):
+            raise TypeError("name must be a string")
         self.name = name
 
-    def __repr__(self):
-        return "Name({!r})".format(self.name)
 
-
-class Function(AST):
+class Function(Ast):
     def __init__(self, name, body):
+        if not isinstance(name, str):
+            raise TypeError("name must be a string")
+        if not isinstance(body, Ast):
+            raise TypeError("body must be an instance of Ast")
         self.name = name
         self.body = body
-
-    def __repr__(self):
-        return "Function({!r}, {!r})".format(self.name, self.body)
 
 
 #: Extra non-terminal token type.
