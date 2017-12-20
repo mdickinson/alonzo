@@ -1,7 +1,7 @@
 """
 Lambda expressions, complete with bindings from names to binding points.
 """
-from church.ast import Apply, Function, Name
+from church.ast import AstToken
 
 
 class Parameter:
@@ -86,49 +86,6 @@ YIELD = "yield"
 PROCESS = "process"
 
 
-def flatten(expr):
-    """
-    Flatten an AST expression.
-
-    Products a series of tokens, from:
-
-      NAME, name
-      OPEN_FUNCTION, name
-      CLOSE_FUNCTION, None
-      OPEN_APPLY, None
-      CLOSE_APPLY, None
-    """
-    to_do = [(PROCESS, expr)]
-    while to_do:
-        action, arg = to_do.pop()
-        if action == PROCESS:
-            if type(arg) == Name:
-                to_do.append((YIELD, (NAME, arg.name)))
-            elif type(arg) == Apply:
-                to_do.extend(
-                    [
-                        (YIELD, (CLOSE_APPLY, None)),
-                        (PROCESS, arg.argument),
-                        (PROCESS, arg.function),
-                        (YIELD, (OPEN_APPLY, None)),
-                    ]
-                )
-            elif type(arg) == Function:
-                to_do.extend(
-                    [
-                        (YIELD, (CLOSE_FUNCTION, None)),
-                        (PROCESS, arg.body),
-                        (YIELD, (OPEN_FUNCTION, arg.name)),
-                    ]
-                )
-            else:
-                assert False, "never get here"
-        elif action == YIELD:
-            yield arg
-        else:
-            assert False, "never get here"
-
-
 def bind(ast_expr):
     """
     Match names to function parameters in the given Ast instance.
@@ -136,21 +93,21 @@ def bind(ast_expr):
     expr_stack = []
     bindings = []
 
-    for action, arg in flatten(ast_expr):
-        if action == NAME:
+    for action, arg in ast_expr.flatten():
+        if action == AstToken.NAME:
             parameter = lookup(bindings, arg)
             expr_stack.append(
                 ParameterReference(parameter)
             )
-        elif action == OPEN_FUNCTION:
+        elif action == AstToken.OPEN_FUNCTION:
             parameter = Parameter(arg)
             bindings.append((arg, parameter))
-        elif action == CLOSE_FUNCTION:
+        elif action == AstToken.CLOSE_FUNCTION:
             name, parameter = bindings.pop()
             expr_stack.append(FunctionExpr(parameter, expr_stack.pop()))
-        elif action == OPEN_APPLY:
+        elif action == AstToken.OPEN_APPLY:
             pass
-        elif action == CLOSE_APPLY:
+        elif action == AstToken.CLOSE_APPLY:
             arg = expr_stack.pop()
             fn = expr_stack.pop()
             expr_stack.append(ApplyExpr(fn, arg))

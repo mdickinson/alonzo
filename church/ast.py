@@ -10,26 +10,44 @@ from church.token import (
 
 
 # Classes providing the AST for the parsed expressions.
+AstToken = enum.Enum(
+    "AstToken", "NAME OPEN_FUNCTION CLOSE_FUNCTION OPEN_APPLY CLOSE_APPLY")
+
 
 class Ast:
+    def flatten(self):
+        """
+        Flatten an AST expression into a series of tokens.
+
+        Useful for recursion-free equality testing, representation
+        and binding operations.
+
+        Generates a sequence of pairs. Each pair is of the form:
+
+        - (NAME, <name>)
+        - (OPEN_FUNCTION, <name>)
+        - (CLOSE_FUNCTION, None)
+        - (OPEN_APPLY, None)
+        - (CLOSE_APPLY, None)
+
+        """
+        to_do = [("PROCESS", self)]
+        while to_do:
+            action, arg = to_do.pop()
+            if action == "PROCESS":
+                to_do.extend(reversed(arg._pieces()))
+            elif action == "YIELD":
+                yield arg
+            else:
+                assert False, "never get here"
+
     def __eq__(self, other):
         # Non-recursive equality check.
-        to_compare = [(self, other)]
-        while to_compare:
-            expr0, expr1 = to_compare.pop()
-            if type(expr0) != type(expr1):
-                return False
-            elif isinstance(expr0, Name):
-                if expr0.name != expr1.name:
-                    return False
-            elif isinstance(expr0, Function):
-                if expr0.name != expr1.name:
-                    return False
-                to_compare.append((expr0.body, expr1.body))
-            elif isinstance(expr0, Apply):
-                to_compare.append((expr0.argument, expr1.argument))
-                to_compare.append((expr0.function, expr1.function))
-            else:
+        if type(self) != type(other):
+            return False
+
+        for self_piece, other_piece in zip(self.flatten(), other.flatten()):
+            if self_piece != other_piece:
                 return False
         return True
 
@@ -43,12 +61,25 @@ class Apply(Ast):
         self.function = function
         self.argument = argument
 
+    def _pieces(self):
+        return [
+            ("YIELD", (AstToken.OPEN_APPLY, None)),
+            ("PROCESS", self.function),
+            ("PROCESS", self.argument),
+            ("YIELD", (AstToken.CLOSE_APPLY, None)),
+        ]
+
 
 class Name(Ast):
     def __init__(self, name):
         if not isinstance(name, str):
             raise TypeError("name must be a string")
         self.name = name
+
+    def _pieces(self):
+        return [
+            ("YIELD", (AstToken.NAME, self.name)),
+        ]
 
 
 class Function(Ast):
@@ -59,6 +90,13 @@ class Function(Ast):
             raise TypeError("body must be an instance of Ast")
         self.name = name
         self.body = body
+
+    def _pieces(self):
+        return [
+            ("YIELD", (AstToken.OPEN_FUNCTION, self.name)),
+            ("PROCESS", self.body),
+            ("YIELD", (AstToken.CLOSE_FUNCTION, None)),
+        ]
 
 
 #: Extra non-terminal token type.
