@@ -17,27 +17,50 @@ def lookup(bindings, name):
 
 
 class Expr:
-    def flatten(self, bindings=None):
+    def flatten(self):
         """
         Convert an Expr into a series of tokens.
         """
-        if bindings is None:
-            bindings = {}
+        bindings = {}
+        to_do = [("PROCESS", self)]
+        while to_do:
+            action, arg = to_do.pop()
+            if action == "PROCESS":
+                if type(arg) == ApplyExpr:
+                    yield "APPLY", None
+                    to_do.append(("PROCESS", arg.argument))
+                    to_do.append(("PROCESS", arg.function))
+                elif type(arg) == FunctionExpr:
+                    yield "FUNCTION", None
+                    assert arg.parameter not in bindings
+                    bindings[arg.parameter] = len(bindings)
+                    to_do.append(("POP_BINDING", arg.parameter))
+                    to_do.append(("PROCESS", arg.body))
+                elif type(arg) == ParameterReference:
+                    index = len(bindings) - 1 - bindings[arg.parameter]
+                    yield "INDEX", index
+            elif action == "POP_BINDING":
+                index = bindings.pop(arg)
+                assert index == len(bindings)
 
-        # TODO non-recursive version
-        if type(self) == ApplyExpr:
-            yield ("APPLY", None)
-            yield from self.function.flatten(bindings)
-            yield from self.argument.flatten(bindings)
-        elif type(self) == FunctionExpr:
-            assert self.parameter not in bindings
-            bindings[self.parameter] = len(bindings)
-            yield ("FUNCTION", None)
-            yield from self.body.flatten(bindings)
-            bindings.pop(self.parameter)
-        elif type(self) == ParameterReference:
-            index = len(bindings) - 1 - bindings[self.parameter]
-            yield ("INDEX", index)
+        assert not bindings
+
+    def bitstring(self):
+        """
+        Convert an expr to its corresponding encoding as a bit string.
+        """
+        PIECE_TO_BITS = {
+            "APPLY": "01",
+            "FUNCTION": "00",
+            "INDEX": "1",
+        }
+
+        bits = []
+        for piece, arg in self.flatten():
+            bits.append(PIECE_TO_BITS[piece])
+            if piece == "INDEX":
+                bits.extend(["1"*arg, "0"])
+        return ''.join(bits)
 
     def __eq__(self, other):
         if type(self) != type(other):

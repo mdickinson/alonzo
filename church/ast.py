@@ -51,6 +51,10 @@ class Ast:
                 return False
         return True
 
+    def __repr__(self):
+        # TODO
+        pass
+
 
 class Apply(Ast):
     def __init__(self, function, argument):

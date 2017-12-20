@@ -12,6 +12,30 @@ from church.token import tokenize
 
 
 class TestExpr(unittest.TestCase):
+    def test_equal(self):
+        test_equal_pairs = [
+            (r"\x.x", r"\dummy.dummy"),
+            (r"\x x.x", r"\x y.y"),
+            (r"\x x.x", r"\x.\x.x"),
+            (r"\x y x y.x", r"\a b c d.c"),
+        ]
+
+        for first, second in test_equal_pairs:
+            with self.subTest(first=first, second=second):
+                first_expr = bind(parse(tokenize(first)))
+                second_expr = bind(parse(tokenize(second)))
+                self.assertEqual(first_expr, second_expr)
+
+        test_unequal_pairs = [
+            (r"\x.x", r"\x.x x"),
+            (r"\x.\x.x", r"\y.\x.y"),
+        ]
+        for first, second in test_unequal_pairs:
+            with self.subTest(first=first, second=second):
+                first_expr = bind(parse(tokenize(first)))
+                second_expr = bind(parse(tokenize(second)))
+                self.assertNotEqual(first_expr, second_expr)
+
     def test_bind(self):
         X = Parameter("x")
         Y = Parameter("y")
@@ -41,3 +65,17 @@ class TestExpr(unittest.TestCase):
                 ast = parse(tokenize(input))
                 with self.assertRaises(ValueError):
                     bind(ast)
+
+    def test_bitstring(self):
+        test_pairs = {
+            r"\x.x": "0010",
+            r"\x y.y": "000010",
+            r"\x y.x": "0000110",
+            r"\x.x x": "00011010",
+            r"\x x y.y": "00000010",
+        }
+        for input, expected_bitstring in test_pairs.items():
+            with self.subTest(input=input):
+                expr = bind(parse(tokenize(input)))
+                actual_bitstring = expr.bitstring()
+                self.assertEqual(actual_bitstring, expected_bitstring)
