@@ -1,4 +1,4 @@
-import string
+from church.token import Token, tokenize, TokenType
 
 
 # Classes providing the AST for the parsed expressions.
@@ -53,23 +53,8 @@ class Function(LambdaAST):
         )
 
 
-# Token types: terminals and non-terminals.
+#: Extra non-terminal token type.
 ATOM = "atom"
-DOT = "dot"
-END = "end"
-ID = "id"
-LEFT = "left"
-RIGHT = "right"
-SLASH = "slash"
-
-IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + "_")
-WHITESPACE = set(" \n")
-SINGLE_TOKEN_CHARS = {
-    "(": LEFT,
-    ")": RIGHT,
-    "\\": SLASH,
-    ".": DOT,
-}
 
 
 class ParseError(Exception):
@@ -78,37 +63,6 @@ class ParseError(Exception):
 
 class ParseSuccess(Exception):
     pass
-
-
-def tokenize(s):
-    """
-    Tokenize the string, generating a stream of pairs
-    of the form (token_type, token_value).
-    """
-    chars = iter(s)
-    # Our tokenizer is a finite state machine with just two states: either
-    # we're parsing an identifier, or we're not.
-    parsing_id = False
-    while True:
-        c = next(chars, None)
-        if c in IDENTIFIER_CHARACTERS:
-            if not parsing_id:
-                parsing_id = True
-                id_chars = []
-            id_chars.append(c)
-        else:
-            if parsing_id:
-                yield ID, ''.join(id_chars)
-                parsing_id = False
-            if c in SINGLE_TOKEN_CHARS:
-                yield SINGLE_TOKEN_CHARS[c], None
-            elif c in WHITESPACE:
-                pass
-            elif c is None:
-                yield END, None
-                break
-            else:
-                raise ParseError("Invalid character in string: {}".format(c))
 
 
 class TokenStream(object):
@@ -140,12 +94,19 @@ SDOT_EXPR = "dot-expr"
 SEXPR = "-expr"
 
 
-TOKEN_TYPES = [ATOM, DOT, END, ID, LEFT, RIGHT, SLASH]
-
-parse_expr_methods = {
-    token_type: "parse_expr_{}".format(token_type)
-    for token_type in TOKEN_TYPES
+PARSE_EXPR_METHODS = {
+    TokenType.ID: "parse_expr_id",
+    TokenType.LEFT: "parse_expr_left",
+    TokenType.RIGHT: "parse_expr_right",
+    TokenType.SLASH: "parse_expr_slash",
+    TokenType.DOT: "parse_expr_dot",
+    TokenType.END: "parse_expr_end",
+    ATOM: "parse_expr_atom",
 }
+
+
+def ATOM_TOKEN(expr):
+    return Token(ATOM, expr)
 
 
 class LambdaParser(object):
@@ -158,7 +119,7 @@ class LambdaParser(object):
         body, names = self.values.pop(), self.values.pop()
         while names:
             body = Function(names.pop(), body)
-        self.tokens.push((ATOM, body))
+        self.tokens.push(ATOM_TOKEN(body))
         self.state = self.states.pop()
 
     def parse_names(self):
@@ -167,24 +128,23 @@ class LambdaParser(object):
         """
         names = []
         while True:
-            token_type, token_value = next(self.tokens)
-            if token_type != ID:
+            token = next(self.tokens)
+            if token.type != TokenType.ID:
                 break
-            names.append(token_value)
-        if not names or token_type != DOT:
+            names.append(token.value)
+        if not names or token.type != TokenType.DOT:
             raise ParseError("Invalid name sequence")
         self.values.append(names)
 
     def parse_expr_id(self):
-        token_type, token_value = self.token
-        self.tokens.push((ATOM, Name(token_value)))
+        self.tokens.push(ATOM_TOKEN(Name(self.token.value)))
 
     def parse_expr_atom(self):
-        token_type, token_value = self.token
+        token = self.token
         if self.state.endswith(SEXPR):
-            self.values.append(Apply(self.values.pop(), token_value))
+            self.values.append(Apply(self.values.pop(), token.value))
         else:
-            self.values.append(token_value)
+            self.values.append(token.value)
             self.state += SEXPR
 
     def parse_expr_left(self):
@@ -207,7 +167,7 @@ class LambdaParser(object):
     def parse_expr_right(self):
         if self.state == SLEFT_EXPR:
             self.state = self.states.pop()
-            self.tokens.push((ATOM, self.values.pop()))
+            self.tokens.push(ATOM_TOKEN(self.values.pop()))
         elif self.state == SDOT_EXPR:
             self.reduce_atom_from_lambda()
         else:
@@ -222,8 +182,8 @@ class LambdaParser(object):
         """
         try:
             while True:
-                token_type, token_value = self.token = next(self.tokens)
-                getattr(self, parse_expr_methods[token_type])()
+                token = self.token = next(self.tokens)
+                getattr(self, PARSE_EXPR_METHODS[token.type])()
         except ParseSuccess:
             return self.values.pop()
 
