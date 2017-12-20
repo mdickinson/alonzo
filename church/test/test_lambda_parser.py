@@ -34,6 +34,8 @@ class TestLambdaParser(unittest.TestCase):
             (r"(\x.\y.x)y", Apply(Function("x", Function("y", x)), y)),
             (r"x\y.x", Apply(x, Function("y", x))),
             (r"(x\y.x)", Apply(x, Function("y", x))),
+            (r"x(\y.y)z", Apply(Apply(x, Function("y", y)), z)),
+            (r"(x\y.y)z", Apply(Apply(x, Function("y", y)), z)),
         ]
         for code, expr in test_pairs:
             self.assertEqual(parse(code), expr)
