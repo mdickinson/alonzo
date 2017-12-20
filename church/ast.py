@@ -11,7 +11,7 @@ from church.token import (
 
 # Classes providing the AST for the parsed expressions.
 
-class LambdaAST(object):
+class AST(object):
     def __eq__(self, other):
         # Non-recursive equality check.
         to_compare = [(self, other)]
@@ -34,7 +34,7 @@ class LambdaAST(object):
         return True
 
 
-class Apply(LambdaAST):
+class Apply(AST):
     def __init__(self, function, argument):
         self.function = function
         self.argument = argument
@@ -43,7 +43,7 @@ class Apply(LambdaAST):
         return "Apply({!r}, {!r})".format(self.function, self.argument)
 
 
-class Name(LambdaAST):
+class Name(AST):
     def __init__(self, name):
         self.name = name
 
@@ -51,7 +51,7 @@ class Name(LambdaAST):
         return "Name({!r})".format(self.name)
 
 
-class Function(LambdaAST):
+class Function(AST):
     def __init__(self, name, body):
         self.name = name
         self.body = body

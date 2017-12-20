@@ -1,7 +1,8 @@
 import unittest
 
 from church.ast import Apply, Function, Name, parse, ParseError, unparse
-from church.token import END_TOKEN, ID_TOKEN, SINGLE_CHAR_TOKEN, tokenize
+from church.token import (
+    END_TOKEN, ID_TOKEN, SINGLE_CHAR_TOKEN, tokenize, untokenize)
 
 #: Shortcuts for ease of testing.
 LEFT = SINGLE_CHAR_TOKEN["("]
@@ -50,7 +51,7 @@ class TestParse(unittest.TestCase):
             with self.subTest(code):
                 self.assertEqual(parse(tokenize(code)), expr)
 
-    def test_deeply_nested_constructs(self):
+    def test_parse_deeply_nested_constructs(self):
         # Check for performance problems and uses of Python recursion.
         x = Name("x")
         repeats = 20000
@@ -123,9 +124,7 @@ class TestParse(unittest.TestCase):
             with self.assertRaises(ParseError, msg=repr(bad_string)):
                 parse(tokenize(bad_string))
 
-
-class TestUnparse(unittest.TestCase):
-    def test_nonclosed_expressions(self):
+    def test_unparse(self):
         X = ID("x")
         pairs = [
             ("x", [X, END]),
@@ -150,3 +149,17 @@ class TestUnparse(unittest.TestCase):
                 expr = parse(tokenize(test_expr))
                 actual_tokens = list(unparse(expr))
                 self.assertEqual(actual_tokens, expected_tokens)
+
+    def test_roundtrip(self):
+        pairs = {
+            "x": "x",
+            "abc def": "abc def",
+            "(abc def)": "abc def",
+            r"\x.\y.y x": r"\x y.y x",
+            "(x x)x": "x x x",
+            "x (x x)": "x(x x)",
+        }
+        for input, expected_output in pairs.items():
+            with self.subTest(input):
+                actual_output = untokenize(unparse(parse(tokenize(input))))
+                self.assertEqual(actual_output, expected_output)
