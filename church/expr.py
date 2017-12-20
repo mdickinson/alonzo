@@ -21,55 +21,44 @@ class Expr:
         """
         Convert an Expr into a series of tokens.
         """
-        bindings = {}
         to_do = [("PROCESS", self)]
         while to_do:
             action, arg = to_do.pop()
             if action == "PROCESS":
-                if type(arg) == ApplyExpr:
-                    yield "APPLY", None
-                    to_do.append(("PROCESS", arg.argument))
-                    to_do.append(("PROCESS", arg.function))
-                elif type(arg) == FunctionExpr:
-                    yield "FUNCTION", None
-                    assert arg.parameter not in bindings
-                    bindings[arg.parameter] = len(bindings)
-                    to_do.append(("POP_BINDING", arg.parameter))
-                    to_do.append(("PROCESS", arg.body))
-                elif type(arg) == ParameterReference:
-                    index = len(bindings) - 1 - bindings[arg.parameter]
-                    yield "INDEX", index
-            elif action == "POP_BINDING":
-                index = bindings.pop(arg)
-                assert index == len(bindings)
-
-        assert not bindings
+                to_do.extend(reversed(arg._pieces()))
+            elif action == "YIELD":
+                yield arg
+            else:
+                assert False, "shouldn't get here"
 
     def bitstring(self):
         """
         Convert an expr to its corresponding encoding as a bit string.
         """
-        PIECE_TO_BITS = {
-            "APPLY": "01",
-            "FUNCTION": "00",
-            "INDEX": "1",
-        }
-
+        bindings = {}
         bits = []
         for piece, arg in self.flatten():
-            bits.append(PIECE_TO_BITS[piece])
-            if piece == "INDEX":
-                bits.extend(["1"*arg, "0"])
+            if piece == "APPLY":
+                bits.append("01")
+            elif piece == "FUNCTION":
+                bits.append("00")
+                assert arg not in bindings
+                bindings[arg] = len(bindings)
+            elif piece == "CLOSE_FUNCTION":
+                level = bindings.pop(arg)
+                assert level == len(bindings)
+            elif piece == "NAME":
+                index = len(bindings) - 1 - bindings[arg]
+                bits.append("1")
+                bits.append("1" * index)
+                bits.append("0")
         return ''.join(bits)
 
     def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-
-        for self_piece, other_piece in zip(self.flatten(), other.flatten()):
-            if self_piece != other_piece:
-                return False
-        return True
+        return (
+            type(self) == type(other)
+            and self.bitstring() == other.bitstring()
+        )
 
 
 class ApplyExpr(Expr):
@@ -81,15 +70,55 @@ class ApplyExpr(Expr):
         self.function = function
         self.argument = argument
 
+    def _pieces(self):
+        return [
+            ("YIELD", ("APPLY", None)),
+            ("PROCESS", self.function),
+            ("PROCESS", self.argument),
+            ("YIELD", ("CLOSE_APPLY", None)),
+        ]
+
 
 class FunctionExpr(Expr):
     def __init__(self, parameter, body):
-        if not isinstance(body, Expr):
-            raise TypeError("body should be an instance of Expr")
         if not isinstance(parameter, Parameter):
             raise TypeError("parameter should be an instance of Parameter")
+        if not isinstance(body, Expr):
+            raise TypeError(
+                "body should be an instance of Expr, not {!r}".format(
+                    type(body)))
         self.parameter = parameter
         self.body = body
+
+    def __call__(self, argument):
+        result_stack = []
+        replacements = {self.parameter: argument}
+
+        for piece, arg in self.body.flatten():
+            if piece == "CLOSE_APPLY":
+                argument = result_stack.pop()
+                function = result_stack.pop()
+                result_stack.append(ApplyExpr(function, argument))
+            elif piece == "FUNCTION":
+                new_parameter = Parameter(arg.name)
+                assert arg not in replacements
+                replacements[arg] = ParameterReference(new_parameter)
+            elif piece == "CLOSE_FUNCTION":
+                new_parameter = replacements.pop(arg).parameter
+                body = result_stack.pop()
+                result_stack.append(FunctionExpr(new_parameter, body))
+            elif piece == "NAME":
+                result_stack.append(replacements[arg])
+        result = result_stack.pop()
+        assert not result_stack
+        return result
+
+    def _pieces(self):
+        return [
+            ("YIELD", ("FUNCTION", self.parameter)),
+            ("PROCESS", self.body),
+            ("YIELD", ("CLOSE_FUNCTION", self.parameter)),
+        ]
 
 
 class ParameterReference(Expr):
@@ -97,6 +126,11 @@ class ParameterReference(Expr):
         if not isinstance(parameter, Parameter):
             raise TypeError("parameter should be an instance of Parameter")
         self.parameter = parameter
+
+    def _pieces(self):
+        return [
+            ("YIELD", ("NAME", self.parameter)),
+        ]
 
 
 NAME = "name"

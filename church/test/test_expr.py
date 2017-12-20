@@ -79,3 +79,22 @@ class TestExpr(unittest.TestCase):
                 expr = bind(parse(tokenize(input)))
                 actual_bitstring = expr.bitstring()
                 self.assertEqual(actual_bitstring, expected_bitstring)
+
+    def test_call(self):
+        # Triples function, argument, result.
+        test_triples = [
+            (r"\x.x", r"\x.x", r"\x.x"),
+            (r"\x.x", r"\x.x x", r"\x.x x"),
+        ]
+        for fn, arg, expected_result in test_triples:
+            fn_expr = bind(parse(tokenize(fn)))
+            arg_expr = bind(parse(tokenize(arg)))
+            result_expr = bind(parse(tokenize(expected_result)))
+
+            actual_result = fn_expr(arg_expr)
+            self.assertEqual(actual_result, result_expr)
+
+        true = bind(parse(tokenize(r"\x y.x")))
+        false = bind(parse(tokenize(r"\x y.y")))
+        self.assertEqual(true(true)(false), true)
+        self.assertEqual(false(true)(false), false)
