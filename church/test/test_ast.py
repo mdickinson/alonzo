@@ -48,7 +48,7 @@ class TestParse(unittest.TestCase):
             (r"(x\y.y)z", Apply(Apply(x, Function("y", y)), z)),
         ]
         for code, expr in test_pairs:
-            with self.subTest(code):
+            with self.subTest(code=code):
                 self.assertEqual(parse(tokenize(code)), expr)
 
     def test_parse_deeply_nested_constructs(self):
@@ -145,7 +145,7 @@ class TestParse(unittest.TestCase):
         ]
 
         for test_expr, expected_tokens in pairs:
-            with self.subTest(test_expr):
+            with self.subTest(test_expr=test_expr):
                 expr = parse(tokenize(test_expr))
                 actual_tokens = list(unparse(expr))
                 self.assertEqual(actual_tokens, expected_tokens)
@@ -160,6 +160,6 @@ class TestParse(unittest.TestCase):
             "x (x x)": "x(x x)",
         }
         for input, expected_output in pairs.items():
-            with self.subTest(input):
+            with self.subTest(input=input):
                 actual_output = untokenize(unparse(parse(tokenize(input))))
                 self.assertEqual(actual_output, expected_output)

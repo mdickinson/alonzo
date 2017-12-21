@@ -39,7 +39,7 @@ class TestToken(unittest.TestCase):
         }
 
         for input, expected_tokens in test_pairs.items():
-            with self.subTest(input):
+            with self.subTest(input=input):
                 actual_tokens = list(tokenize(input))
                 self.assertEqual(actual_tokens, expected_tokens)
 
@@ -56,7 +56,7 @@ class TestToken(unittest.TestCase):
             ([SLASH, X, X, DOT, X], "\\x x.x"),
         ]
         for tokens, expected_output in test_pairs:
-            with self.subTest(expected_output):
+            with self.subTest(expected_output=expected_output):
                 actual_output = untokenize(tokens)
                 self.assertEqual(actual_output, expected_output)
 

@@ -2,7 +2,7 @@ import enum
 import string
 
 #: Characters that are valid to use in an identifier.
-IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + "_")
+IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + string.digits + "_")
 
 #: Characters that are valid whitespace.
 WHITESPACE = set(" \n")

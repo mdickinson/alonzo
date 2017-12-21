@@ -1,6 +1,9 @@
 """
 Lambda expressions, complete with bindings from names to binding points.
 """
+import itertools
+
+import church.ast as ast
 from church.ast import AstToken
 
 
@@ -143,14 +146,14 @@ YIELD = "yield"
 PROCESS = "process"
 
 
-def bind(ast_expr):
+def bind(ast):
     """
     Match names to function parameters in the given Ast instance.
     """
     expr_stack = []
     bindings = []
 
-    for action, arg in ast_expr.flatten():
+    for action, arg in ast.flatten():
         if action == AstToken.NAME:
             parameter = lookup(bindings, arg)
             expr_stack.append(
@@ -173,4 +176,60 @@ def bind(ast_expr):
 
     result = expr_stack.pop()
     assert len(expr_stack) == 0
+    return result
+
+
+DIGITS = "0123456789"
+
+
+def variants(base_name):
+    for suffix_length in itertools.count():
+        for suffix in itertools.product(DIGITS, repeat=suffix_length):
+            yield base_name + ''.join(suffix)
+
+
+def name_avoiding(names_to_avoid, base_name):
+    for variant in variants(base_name):
+        if variant not in names_to_avoid:
+            return variant
+
+
+def unbind(expr):
+    """
+    Turn an Expr back into an AST expression, renaming names
+    as we go to avoid potential clashes.
+    """
+    # Store for partially processed results.
+    result_stack = []
+    # Mapping from parameters to names to use in the AST.
+    replacements = {}
+    # Parameter names currently in scope; these must be avoided
+    # when choosing a new name.
+    names_in_scope = set()
+
+    for piece, arg in expr.flatten():
+        if piece == "CLOSE_APPLY":
+            argument = result_stack.pop()
+            function = result_stack.pop()
+            result_stack.append(ast.Apply(function, argument))
+        elif piece == "FUNCTION":
+            name = name_avoiding(names_in_scope, arg.name)
+            assert name not in names_in_scope
+            assert arg not in replacements
+            names_in_scope.add(name)
+            replacements[arg] = name
+            result_stack.append(name)
+        elif piece == "CLOSE_FUNCTION":
+            body = result_stack.pop()
+            name = result_stack.pop()
+            result_stack.append(ast.Function(name, body))
+            replacements.pop(arg)
+            names_in_scope.remove(name)
+        elif piece == "NAME":
+            result_stack.append(ast.Name(replacements[arg]))
+
+    result = result_stack.pop()
+    assert not result_stack
+    assert not replacements
+    assert not names_in_scope
     return result

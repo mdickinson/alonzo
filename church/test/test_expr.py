@@ -1,14 +1,39 @@
 import unittest
 
-from church.ast import parse
+from church.ast import parse, unparse
 from church.expr import (
     ApplyExpr,
     bind,
     FunctionExpr,
     Parameter,
     ParameterReference,
+    unbind,
 )
-from church.token import tokenize
+from church.token import tokenize, untokenize
+
+
+def expr(input):
+    return bind(parse(tokenize(input)))
+
+
+def unexpr(expr):
+    return untokenize(unparse(unbind(expr)))
+
+
+def harmonious_names(expr):
+    """
+    Return True if no parameter name matches the parameter name from
+    any enclosing scope.
+    """
+    names = set()
+    for piece, arg in expr.flatten():
+        if piece == "FUNCTION":
+            if arg.name in names:
+                return False
+            names.add(arg.name)
+        elif piece == "CLOSE_FUNCTION":
+            names.remove(arg.name)
+    return True
 
 
 class TestExpr(unittest.TestCase):
@@ -22,8 +47,8 @@ class TestExpr(unittest.TestCase):
 
         for first, second in test_equal_pairs:
             with self.subTest(first=first, second=second):
-                first_expr = bind(parse(tokenize(first)))
-                second_expr = bind(parse(tokenize(second)))
+                first_expr = expr(first)
+                second_expr = expr(second)
                 self.assertEqual(first_expr, second_expr)
 
         test_unequal_pairs = [
@@ -32,8 +57,8 @@ class TestExpr(unittest.TestCase):
         ]
         for first, second in test_unequal_pairs:
             with self.subTest(first=first, second=second):
-                first_expr = bind(parse(tokenize(first)))
-                second_expr = bind(parse(tokenize(second)))
+                first_expr = expr(first)
+                second_expr = expr(second)
                 self.assertNotEqual(first_expr, second_expr)
 
     def test_bind(self):
@@ -51,8 +76,8 @@ class TestExpr(unittest.TestCase):
         }
 
         for input, expected_expr in test_pairs.items():
-            with self.subTest(input):
-                actual_expr = bind(parse(tokenize(input)))
+            with self.subTest(input=input):
+                actual_expr = expr(input)
                 self.assertEqual(actual_expr, expected_expr)
 
     def test_bind_invalid(self):
@@ -61,7 +86,7 @@ class TestExpr(unittest.TestCase):
             r"(\x.x)x",
         ]
         for input in bad_inputs:
-            with self.subTest(input):
+            with self.subTest(input=input):
                 ast = parse(tokenize(input))
                 with self.assertRaises(ValueError):
                     bind(ast)
@@ -76,8 +101,8 @@ class TestExpr(unittest.TestCase):
         }
         for input, expected_bitstring in test_pairs.items():
             with self.subTest(input=input):
-                expr = bind(parse(tokenize(input)))
-                actual_bitstring = expr.bitstring()
+                actual_expr = expr(input)
+                actual_bitstring = actual_expr.bitstring()
                 self.assertEqual(actual_bitstring, expected_bitstring)
 
     def test_call(self):
@@ -87,14 +112,28 @@ class TestExpr(unittest.TestCase):
             (r"\x.x", r"\x.x x", r"\x.x x"),
         ]
         for fn, arg, expected_result in test_triples:
-            fn_expr = bind(parse(tokenize(fn)))
-            arg_expr = bind(parse(tokenize(arg)))
-            result_expr = bind(parse(tokenize(expected_result)))
+            fn_expr = expr(fn)
+            arg_expr = expr(arg)
+            result_expr = expr(expected_result)
 
             actual_result = fn_expr(arg_expr)
             self.assertEqual(actual_result, result_expr)
 
-        true = bind(parse(tokenize(r"\x y.x")))
-        false = bind(parse(tokenize(r"\x y.y")))
+        true = expr(r"\x y.x")
+        false = expr(r"\x y.y")
+
         self.assertEqual(true(true)(false), true)
         self.assertEqual(false(true)(false), false)
+
+    def test_unbind(self):
+        test_inputs = [
+            r"\x.x",
+            r"\x x.x",
+            r"\x x x.x",
+            r"\x y x y.x y",
+        ]
+        for input in test_inputs:
+            with self.subTest(input=input):
+                original_expr = expr(input)
+                str_expr = unexpr(original_expr)
+                self.assertEqual(expr(str_expr), original_expr)
