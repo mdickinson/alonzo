@@ -4,7 +4,8 @@ Lambda expressions, complete with bindings from names to binding points.
 import itertools
 
 import church.ast as ast
-from church.ast import AstToken
+from church.ast import AstToken, parse, unparse
+from church.token import tokenize, untokenize
 
 
 class Parameter:
@@ -63,6 +64,9 @@ class Expr:
             and self.bitstring() == other.bitstring()
         )
 
+    def __matmul__(self, other):
+        return ApplyExpr(self, other)
+
 
 class ApplyExpr(Expr):
     def __init__(self, function, argument):
@@ -92,29 +96,6 @@ class FunctionExpr(Expr):
                     type(body)))
         self.parameter = parameter
         self.body = body
-
-    def __call__(self, argument):
-        result_stack = []
-        replacements = {self.parameter: argument}
-
-        for piece, arg in self.body.flatten():
-            if piece == "CLOSE_APPLY":
-                argument = result_stack.pop()
-                function = result_stack.pop()
-                result_stack.append(ApplyExpr(function, argument))
-            elif piece == "FUNCTION":
-                new_parameter = Parameter(arg.name)
-                assert arg not in replacements
-                replacements[arg] = ParameterReference(new_parameter)
-            elif piece == "CLOSE_FUNCTION":
-                new_parameter = replacements.pop(arg).parameter
-                body = result_stack.pop()
-                result_stack.append(FunctionExpr(new_parameter, body))
-            elif piece == "NAME":
-                result_stack.append(replacements[arg])
-        result = result_stack.pop()
-        assert not result_stack
-        return result
 
     def _pieces(self):
         return [
@@ -233,3 +214,11 @@ def unbind(expr):
     assert not replacements
     assert not names_in_scope
     return result
+
+
+def expr(input):
+    return bind(parse(tokenize(input)))
+
+
+def unexpr(expr):
+    return untokenize(unparse(unbind(expr)))
