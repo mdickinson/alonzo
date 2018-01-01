@@ -75,3 +75,14 @@ class TestEval(unittest.TestCase):
             reduce(pow @ three @ two),
             reduce(mul @ three @ three),
         )
+
+    def test_reduce_deeply_nested(self):
+        # Fails with a RecursionError for the recursive reduction algorithm.
+        id = expr(r"\x.x")
+        true = expr(r"\x y.x")
+
+        nested = true
+        for _ in range(3000):
+            nested = id @ nested
+
+        self.assertEqual(reduce(nested), true)
