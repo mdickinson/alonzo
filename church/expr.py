@@ -141,7 +141,7 @@ def bind(ast):
             fn = expr_stack.pop()
             expr_stack.append(ApplyExpr(fn, arg))
         else:
-            assert False, "never get here"
+            raise RuntimeError("Unexpected action: {!r}".format(action))
 
     result, = expr_stack
     return result
