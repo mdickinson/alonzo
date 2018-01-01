@@ -1,10 +1,8 @@
 """
 Evaluation strategies for lambda expressions.
 """
-# XXX Rename ParameterReference to NameExpr.
-
 from church.expr import (
-    ApplyExpr, FunctionExpr, Parameter, ParameterReference,
+    ApplyExpr, FunctionExpr, NameExpr, Parameter,
 )
 
 
@@ -30,7 +28,7 @@ def mk_bind(var, val, env):
 
 
 def rtnf(term, lexenv):
-    if type(term) == ParameterReference:
+    if type(term) == NameExpr:
         return rtnf_var(term, lexenv)
     elif type(term) == ApplyExpr:
         return rtnf_app(term, lexenv)
@@ -44,7 +42,7 @@ def rtnf(term, lexenv):
 def rtnf_var(var, lexenv):
     if var.parameter not in lexenv:
         # XXX When is this exercised? Do we need it? Should
-        # we be wrapping var in a ParameterReference?
+        # we be wrapping var in a NameExpr?
         return var
     else:
         susp = lexenv[var.parameter]
@@ -77,13 +75,13 @@ def rtnf_lam(lam, lexenv):
         newvar,
         rtnf(
             lam.body,
-            mk_bind(lam.parameter, ParameterReference(newvar), lexenv),
+            mk_bind(lam.parameter, NameExpr(newvar), lexenv),
         ),
     )
 
 
 def rtlf(term, lexenv):
-    if type(term) == ParameterReference:
+    if type(term) == NameExpr:
         return rtlf_var(term, lexenv)
     elif type(term) == ApplyExpr:
         return rtlf_app(term, lexenv)

@@ -105,7 +105,7 @@ class FunctionExpr(Expr):
         ]
 
 
-class ParameterReference(Expr):
+class NameExpr(Expr):
     def __init__(self, parameter):
         if not isinstance(parameter, Parameter):
             raise TypeError("parameter should be an instance of Parameter")
@@ -138,7 +138,7 @@ def bind(ast):
         if action == AstToken.NAME:
             parameter = lookup(bindings, arg)
             expr_stack.append(
-                ParameterReference(parameter)
+                NameExpr(parameter)
             )
         elif action == AstToken.OPEN_FUNCTION:
             parameter = Parameter(arg)

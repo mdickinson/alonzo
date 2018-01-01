@@ -5,8 +5,8 @@ from church.expr import (
     ApplyExpr,
     bind,
     FunctionExpr,
+    NameExpr,
     Parameter,
-    ParameterReference,
     unbind,
 )
 from church.token import tokenize, untokenize
@@ -64,8 +64,8 @@ class TestExpr(unittest.TestCase):
     def test_bind(self):
         X = Parameter("x")
         Y = Parameter("y")
-        RX = ParameterReference(X)
-        RY = ParameterReference(Y)
+        RX = NameExpr(X)
+        RY = NameExpr(Y)
         test_pairs = {
             r"\x.x": FunctionExpr(X, RX),
             r"\x x.x": FunctionExpr(X, FunctionExpr(Y, RY)),
