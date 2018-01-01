@@ -20,22 +20,6 @@ def unexpr(expr):
     return untokenize(unparse(unbind(expr)))
 
 
-def harmonious_names(expr):
-    """
-    Return True if no parameter name matches the parameter name from
-    any enclosing scope.
-    """
-    names = set()
-    for piece, arg in expr.flatten():
-        if piece == "FUNCTION":
-            if arg.name in names:
-                return False
-            names.add(arg.name)
-        elif piece == "CLOSE_FUNCTION":
-            names.remove(arg.name)
-    return True
-
-
 class TestExpr(unittest.TestCase):
     def test_equal(self):
         test_equal_pairs = [

@@ -9,6 +9,9 @@ class TestEval(unittest.TestCase):
         id = expr(r"\x.x")
         true = expr(r"\x y.x")
         false = expr(r"\x y.y")
+        pair = expr(r"\p q f.f p q")
+        first = expr(r"\p.p\x y.x")
+        second = expr(r"\p.p\x y.y")
 
         self.assertNotEqual(true, false)
 
@@ -19,6 +22,10 @@ class TestEval(unittest.TestCase):
         self.assertEqual(reduce(true @ false), expr(r"\a a a.a"))
         self.assertEqual(reduce(true @ true @ false), true)
         self.assertEqual(reduce(false @ true @ false), false)
+
+        self.assertEqual(reduce(pair), pair)
+        self.assertEqual(reduce(first @ (pair @ true @ false)), true)
+        self.assertEqual(reduce(second @ (pair @ true @ false)), false)
 
     def test_reduce_arithmetic(self):
         test_expr = expr(r"\x.(\y.y)x")
