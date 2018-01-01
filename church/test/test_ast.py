@@ -163,3 +163,17 @@ class TestParse(unittest.TestCase):
             with self.subTest(input=input):
                 actual_output = untokenize(unparse(parse(tokenize(input))))
                 self.assertEqual(actual_output, expected_output)
+
+    def test_equality(self):
+        x, y = map(Name, "xy")
+
+        self.assertEqual(x, x)
+        self.assertEqual(Apply(x, y), Apply(x, y))
+        self.assertEqual(Function("x", x), Function("x", x))
+
+        self.assertNotEqual(Name("x"), Name("y"))
+        self.assertNotEqual(
+            Apply(Apply(x, y), Apply(x, x)),
+            Apply(Apply(x, x), Apply(x, x)),
+        )
+        self.assertNotEqual(Function("x", x), Function("y", y))

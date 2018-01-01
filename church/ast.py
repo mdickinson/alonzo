@@ -39,29 +39,18 @@ class Ast:
             elif action == "YIELD":
                 yield arg
             else:
-                assert False, "never get here"
+                raise RuntimeError("Unexpected action: {!r}".format(action))
 
     def __eq__(self, other):
         # Non-recursive equality check.
-        if type(self) != type(other):
-            return False
-
         for self_piece, other_piece in zip(self.flatten(), other.flatten()):
             if self_piece != other_piece:
                 return False
         return True
 
-    def __repr__(self):
-        # TODO
-        pass
-
 
 class Apply(Ast):
     def __init__(self, function, argument):
-        if not isinstance(function, Ast):
-            raise TypeError("function should be an instance of Ast")
-        if not isinstance(argument, Ast):
-            raise TypeError("argument should be an instance of Ast")
         self.function = function
         self.argument = argument
 
@@ -76,8 +65,6 @@ class Apply(Ast):
 
 class Name(Ast):
     def __init__(self, name):
-        if not isinstance(name, str):
-            raise TypeError("name must be a string")
         self.name = name
 
     def _pieces(self):
@@ -88,10 +75,6 @@ class Name(Ast):
 
 class Function(Ast):
     def __init__(self, name, body):
-        if not isinstance(name, str):
-            raise TypeError("name must be a string")
-        if not isinstance(body, Ast):
-            raise TypeError("body must be an instance of Ast")
         self.name = name
         self.body = body
 
@@ -299,5 +282,5 @@ def unparse(expr):
                 to_do.append((UnparseState.TOP, expr))
                 to_do.append((UnparseState.WRITE_LEFT, None))
         else:
-            assert False, "should never get here"
+            raise TypeError("Unexpected expr of type {!r}".format(type(expr)))
     yield END_TOKEN

@@ -38,12 +38,6 @@ class Token:
             and self.value == other.value
         )
 
-    def __repr__(self):
-        if self.value is None:
-            return "Token({!r})".format(self.type)
-        else:
-            return "Token({!r}, {!r})".format(self.type, self.value)
-
 
 #: Tokens consisting of a single punctuation character.
 SINGLE_CHAR_TOKEN = {

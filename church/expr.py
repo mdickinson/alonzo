@@ -33,7 +33,7 @@ class Expr:
             elif action == "YIELD":
                 yield arg
             else:
-                assert False, "shouldn't get here"
+                raise RuntimeError("Unexpected action: {!r}".format(action))
 
     def bitstring(self):
         """
@@ -70,10 +70,6 @@ class Expr:
 
 class ApplyExpr(Expr):
     def __init__(self, function, argument):
-        if not isinstance(function, Expr):
-            raise TypeError("function should be an instance of Expr")
-        if not isinstance(argument, Expr):
-            raise TypeError("argument should be an instance of Expr")
         self.function = function
         self.argument = argument
 
@@ -88,12 +84,6 @@ class ApplyExpr(Expr):
 
 class FunctionExpr(Expr):
     def __init__(self, parameter, body):
-        if not isinstance(parameter, Parameter):
-            raise TypeError("parameter should be an instance of Parameter")
-        if not isinstance(body, Expr):
-            raise TypeError(
-                "body should be an instance of Expr, not {!r}".format(
-                    type(body)))
         self.parameter = parameter
         self.body = body
 
@@ -107,8 +97,6 @@ class FunctionExpr(Expr):
 
 class NameExpr(Expr):
     def __init__(self, parameter):
-        if not isinstance(parameter, Parameter):
-            raise TypeError("parameter should be an instance of Parameter")
         self.parameter = parameter
 
     def _pieces(self):
@@ -155,8 +143,7 @@ def bind(ast):
         else:
             assert False, "never get here"
 
-    result = expr_stack.pop()
-    assert len(expr_stack) == 0
+    result, = expr_stack
     return result
 
 
