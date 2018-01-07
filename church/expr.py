@@ -162,19 +162,20 @@ def name_avoiding(names_to_avoid, base_name):
             return variant
 
 
-def unbind(expr):
+def unbind(expr, replacements=None):
     """
     Turn an Expr back into an AST expression, renaming names
     as we go to avoid potential clashes.
     """
     # Store for partially processed results.
-    result_stack = []
     # Mapping from parameters to names to use in the AST.
-    replacements = {}
+    if replacements is None:
+        replacements = {}
     # Parameter names currently in scope; these must be avoided
     # when choosing a new name.
-    names_in_scope = set()
+    names_in_scope = set(replacements.values())
 
+    result_stack = []
     for piece, arg in expr.flatten():
         if piece == "CLOSE_APPLY":
             argument = result_stack.pop()
@@ -196,10 +197,7 @@ def unbind(expr):
         elif piece == "NAME":
             result_stack.append(ast.Name(replacements[arg]))
 
-    result = result_stack.pop()
-    assert not result_stack
-    assert not replacements
-    assert not names_in_scope
+    result, = result_stack
     return result
 
 
@@ -207,5 +205,5 @@ def expr(input):
     return bind(parse(tokenize(input)))
 
 
-def unexpr(expr):
-    return untokenize(unparse(unbind(expr)))
+def unexpr(expr, replacements=None):
+    return untokenize(unparse(unbind(expr, replacements=replacements)))
