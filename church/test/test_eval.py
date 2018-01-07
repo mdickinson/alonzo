@@ -41,8 +41,8 @@ class TestEval(unittest.TestCase):
 
         succ = expr("\m f x.f(m f x)")
 
-        add = expr(r"\m n f x.m f (n f x)")
-        mul = expr(r"\m n f.m (n f)")
+        add = expr(r"\m n f x.m f(n f x)")
+        mul = expr(r"\m n f.m(n f)")
         pow = expr(r"\m n.n m")
 
         self.assertEqual(reduce(succ @ zero), one)
