@@ -8,16 +8,23 @@ from church.ast import AstToken, parse, unparse
 from church.token import tokenize, untokenize
 
 
+class UndefinedNameError(Exception):
+    pass
+
+
 class Parameter:
     def __init__(self, name):
         self.name = name
 
 
 def lookup(bindings, name):
+    """
+    Look up the given name in a list of bindings.
+    """
     for parameter_name, parameter in reversed(bindings):
         if parameter_name == name:
             return parameter
-    raise ValueError("Failed lookup")
+    raise UndefinedNameError(name)
 
 
 class Expr:
@@ -115,12 +122,14 @@ YIELD = "yield"
 PROCESS = "process"
 
 
-def bind(ast):
+def bind(ast, bindings=None):
     """
     Match names to function parameters in the given Ast instance.
     """
     expr_stack = []
-    bindings = []
+
+    if bindings is None:
+        bindings = []
 
     for action, arg in ast.flatten():
         if action == AstToken.NAME:
@@ -201,8 +210,8 @@ def unbind(expr, replacements=None):
     return result
 
 
-def expr(input):
-    return bind(parse(tokenize(input)))
+def expr(input, bindings=None):
+    return bind(parse(tokenize(input)), bindings)
 
 
 def unexpr(expr, replacements=None):

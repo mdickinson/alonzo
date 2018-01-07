@@ -195,7 +195,7 @@ class LambdaParser(object):
         elif self.state == SDOT_EXPR:
             self.reduce_atom_from_lambda()
         else:
-            raise ParseError("Unexpected end of input")
+            raise ParseError("Unexpected end of input.")
 
     def parse_expr_right(self):
         if self.state == SLEFT_EXPR:

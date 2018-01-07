@@ -8,6 +8,10 @@ IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + string.digits + "_")
 WHITESPACE = set(" \n")
 
 
+class InvalidTerm(Exception):
+    pass
+
+
 class TokenType(enum.Enum):
     """
     Types of tokens.
@@ -56,6 +60,10 @@ def ID_TOKEN(name):
     return Token(TokenType.ID, name)
 
 
+def valid_id(name):
+    return name and set(name) <= IDENTIFIER_CHARACTERS
+
+
 def tokenize(input):
     """
     Tokenize the given input, generating a stream of tokens.
@@ -87,7 +95,7 @@ def tokenize(input):
                 yield END_TOKEN
                 break
             else:
-                raise ValueError(
+                raise InvalidTerm(
                     "Invalid character in string: {!r}".format(c))
 
 
