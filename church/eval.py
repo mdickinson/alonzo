@@ -6,6 +6,9 @@ from church.expr import (
 )
 
 
+# Normal order reduction: translated from section 4.2 of the paper "An
+# Efficient Interpreter for the Lambda Calculus" by Luigia Aiello.
+
 # A suspension combines an unnormalised term with the environment it
 # should be normalised in.
 
@@ -33,102 +36,70 @@ def lookup(env, var):
     raise LookupError("variable not in environment")
 
 
-# Normal order reduction: translated from the paper
-# "An Efficient Interpreter for the Lambda Calculus" by
-# Luigia Aiello.
+def apply(func, arg):
+    """
+    Apply a suspension of function type to an argument.
+    """
+    return Suspension(
+        func.term.body,
+        Environment(
+            func.term.parameter,
+            arg,
+            func.env,
+        ),
+    )
 
-def reduce(term):
-    # (REDUCE_TERM, term, lexenv): _reduce(term, lexenv, False)
-    # (REDUCE_FUNCTION, term, lexenv): _reduce(term, lexenv, True)
-    to_do = [("REDUCE_TERM", term, None)]
+
+def reduce(term, env=None):
+    """
+    Reduce the given term to its normal form, if that normal form exists.
+    """
+    to_do = [(0, Suspension(term, env))]
     results = []
 
     while to_do:
-        action, *args = to_do.pop()
-        if action == "REDUCE_TERM":
-            term, lexenv = args
+        action, arg = to_do.pop()
+        if action < 2:
+            term, lexenv = arg.term, arg.env
             if type(term) == NameExpr:
                 susp = lookup(lexenv, term.parameter)
                 if type(susp) == Suspension:
-                    to_do.append(("REDUCE_TERM", susp.term, susp.env))
-                elif type(susp) == NameExpr:
-                    results.append(susp)
+                    to_do.append((action, susp))
                 else:
-                    raise TypeError(
-                        "Unexpected suspension type: {!r}".format(type(susp)))
-            elif type(term) == ApplyExpr:
-                to_do.append(("REDUCE_ARGUMENT", term.argument, lexenv))
-                to_do.append(("REDUCE_FUNCTION", term.function, lexenv))
-            elif type(term) == FunctionExpr:
-                newvar = Parameter(term.parameter.name)
-                newenv = Environment(term.parameter, NameExpr(newvar), lexenv)
-                to_do.append(("BUILD_FUNCTION", newvar))
-                to_do.append(("REDUCE_TERM", term.body, newenv))
-            else:
-                raise TypeError(
-                    "Unexpected term type: {!r}".format(type(term)))
-
-        elif action == "REDUCE_FUNCTION":
-            term, lexenv = args
-            if type(term) == NameExpr:
-                susp = lookup(lexenv, term.parameter)
-                if type(susp) == Suspension:
-                    to_do.append(("REDUCE_FUNCTION", susp.term, susp.env))
-                elif type(susp) == NameExpr:
+                    assert type(susp) == NameExpr
                     results.append(susp)
-                else:
-                    raise TypeError(
-                        "Unexpected suspension type: {!r}".format(type(susp)))
             elif type(term) == ApplyExpr:
-                to_do.append(("REDUCE_ARGUMENT1", term.argument, lexenv))
-                to_do.append(("REDUCE_FUNCTION", term.function, lexenv))
-            elif type(term) == FunctionExpr:
-                results.append(Suspension(term, lexenv))
+                to_do.extend([
+                    (action+2, Suspension(term.argument, lexenv)),
+                    (1, Suspension(term.function, lexenv)),
+                ])
             else:
-                raise TypeError(
-                    "Unexpected term type: {!r}".format(type(term)))
+                assert type(term) == FunctionExpr
+                if action == 1:
+                    results.append(arg)
+                else:
+                    newvar = Parameter(term.parameter.name)
+                    results.append(newvar)
+                    to_do.extend(
+                        [(5, None), (0, apply(arg, NameExpr(newvar)))]
+                    )
 
-        elif action == "REDUCE_ARGUMENT":
-            term, lexenv = args
+        elif action < 4:
             susp = results.pop()
             if type(susp) == Suspension:
-                newenv = Environment(
-                    susp.term.parameter,
-                    Suspension(term, lexenv),
-                    susp.env,
-                )
-                to_do.append(("REDUCE_TERM", susp.term.body, newenv))
+                to_do.append((action-2, apply(susp, arg)))
             else:
                 results.append(susp)
-                to_do.append(("BUILD_APPLICATION",))
-                to_do.append(("REDUCE_TERM", term, lexenv))
+                to_do.extend([(4, None), (0, arg)])
 
-        elif action == "REDUCE_ARGUMENT1":
-            term, lexenv = args
-            susp = results.pop()
-            if type(susp) == Suspension:
-                newenv = Environment(
-                    susp.term.parameter,
-                    Suspension(term, lexenv),
-                    susp.env,
-                )
-                to_do.append(("REDUCE_FUNCTION", susp.term.body, newenv))
-            else:
-                results.append(susp)
-                to_do.append(("BUILD_APPLICATION",))
-                to_do.append(("REDUCE_TERM", term, lexenv))
-
-        elif action == "BUILD_FUNCTION":
-            newvar, = args
-            results.append(FunctionExpr(newvar, results.pop()))
-
-        elif action == "BUILD_APPLICATION":
-            argument = results.pop()
-            function = results.pop()
+        elif action == 4:
+            argument, function = results.pop(), results.pop()
             results.append(ApplyExpr(function, argument))
 
         else:
-            raise RuntimeError("Bad action: {!r}".format(action))
+            assert action == 5
+            body, newvar = results.pop(), results.pop()
+            results.append(FunctionExpr(newvar, body))
 
     result, = results
     return result
