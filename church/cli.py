@@ -60,13 +60,23 @@ class LambdaCmd(cmd.Cmd):
         -------
         def two = \f x.f(f x)
         """
-        varname, equal, value_expr = arg.partition("=")
-        varname = varname.strip()
+        pattern, equal, value_expr = arg.partition("=")
+        pattern = pattern.strip()
         value_expr = value_expr.strip()
 
-        if not value_expr or not varname:
-            self.stdout.write("Usage: def <name> = <expr>\n")
+        if not pattern or not value_expr:
+            self.stdout.write("Usage: def <name> <args> = <expr>\n")
             return
+
+        pieces = pattern.split()
+        for piece in pieces:
+            if not valid_id(piece):
+                self.stdout.write("Invalid name: {!r}\n".format(piece))
+                return
+
+        varname, *args = pieces
+        if args:
+            value_expr = "\{}.{}".format(' '.join(args), value_expr)
 
         if not valid_id(varname):
             self.stdout.write("Invalid name: {!r}\n".format(varname))
