@@ -1,3 +1,12 @@
+"""
+To do:
+
+- implement show
+- catch KeyboardInterrupt while evaluating
+- allow comments
+- add intro text
+
+"""
 import cmd
 
 from church.ast import ParseError
@@ -29,6 +38,11 @@ class LambdaCmd(cmd.Cmd):
     def emptyline(self):
         pass
 
+    def precmd(self, line):
+        # Strip off any comment.
+        line, *_ = line.partition('#')
+        return line.strip()
+
     def do_exit(self, arg):
         """Leave the interpreter."""
         return True
@@ -53,19 +67,19 @@ class LambdaCmd(cmd.Cmd):
         else:
             return True, term
 
-    def do_def(self, arg):
+    def do_let(self, arg):
         r"""Define a name for a lambda term.
 
         Example
         -------
-        def two = \f x.f(f x)
+        let two = \f x.f(f x)
         """
         pattern, equal, value_expr = arg.partition("=")
         pattern = pattern.strip()
         value_expr = value_expr.strip()
 
         if not pattern or not value_expr:
-            self.stdout.write("Usage: def <name> <args> = <expr>\n")
+            self.stdout.write("Usage: let <name> <args> = <expr>\n")
             return
 
         pieces = pattern.split()
@@ -96,8 +110,8 @@ class LambdaCmd(cmd.Cmd):
                 self.environment,
             )
 
-    def do_run(self, arg):
-        r"""Evaluate a lambda term."""
+    def do_eval(self, arg):
+        r"""Evaluate a lambda term, reducing to normal form."""
         success, term_or_msg = self._parse_term(arg)
         if not success:
             msg = term_or_msg
