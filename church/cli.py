@@ -3,16 +3,21 @@ To do:
 
 - implement show
 - catch KeyboardInterrupt while evaluating
-- allow comments
 - add intro text
 
 """
 import cmd
 
 from church.ast import ParseError
-from church.eval import Environment, reduce, Suspension
+from church.eval import (
+    Environment,
+    lookup as binding_lookup,
+    reduce,
+    Suspension,
+)
 from church.expr import (
     expr,
+    lookup as name_lookup,
     Parameter,
     UndefinedNameError,
     unexpr,
@@ -120,3 +125,23 @@ class LambdaCmd(cmd.Cmd):
             term = term_or_msg
             result = reduce(term, self.environment)
             self.stdout.write("{}\n".format(unexpr(result)))
+
+    def do_show(self, arg):
+        r"""Show the definition of a previously defined name."""
+        arg = arg.strip()
+
+        bindings = bindings_from_env(self.environment)
+
+        try:
+            binding = name_lookup(bindings, arg)
+        except LookupError:
+            self.stdout.write("Unknown name {}\n".format(arg))
+            return
+
+        suspension = binding_lookup(self.environment, binding)
+        replacements = {
+            parameter: name
+            for name, parameter in bindings_from_env(suspension.env)
+        }
+        self.stdout.write("{}\n".format(unexpr(
+            suspension.term, replacements)))

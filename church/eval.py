@@ -29,6 +29,10 @@ class Environment:
 
 
 def lookup(env, var):
+    """
+    Look up the given binding in an environment.
+    """
+    # XXX Make this a method of a proper Environment class.
     while env is not None:
         if env.var == var:
             return env.val

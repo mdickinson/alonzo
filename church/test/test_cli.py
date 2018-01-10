@@ -60,3 +60,19 @@ exit# time to say goodbye
         self.process_lines(test_script.splitlines())
         output = self.stdout.getvalue()
         self.assertEqual(output, r"\f x.f(f(f(f(f(f x)))))""\n")
+
+    def test_show(self):
+        test_script = r"""
+let two f x = f (f x)
+show two
+let pow m n = n m
+let four = pow two two
+show four
+exit
+"""
+        self.process_lines(test_script.splitlines())
+        output = self.stdout.getvalue()
+        output_lines = output.splitlines()
+        self.assertEqual(len(output_lines), 2)
+        self.assertEqual(output_lines[0], r"\f x.f(f x)")
+        self.assertEqual(output_lines[1], r"pow two two")
