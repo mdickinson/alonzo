@@ -4,6 +4,7 @@ Evaluation strategies for lambda expressions.
 from church.expr import (
     ApplyExpr, FunctionExpr, NameExpr, Parameter,
 )
+from church.environment import environment
 
 
 # Normal order reduction: translated from section 4.2 of the paper "An
@@ -18,43 +19,17 @@ class Suspension:
         self.env = env
 
 
-# An environment represents a mapping to from Parameter instances to either
-# NameExpr instances or Suspension instances.
-
-class Environment:
-    def __init__(self, var, val, env):
-        self.var = var
-        self.val = val
-        self.env = env
-
-
-def lookup(env, var):
-    """
-    Look up the given binding in an environment.
-    """
-    # XXX Make this a method of a proper Environment class.
-    while env is not None:
-        if env.var == var:
-            return env.val
-        env = env.env
-    raise LookupError("variable not in environment")
-
-
 def apply(func, arg):
     """
     Apply a suspension of function type to an argument.
     """
     return Suspension(
         func.term.body,
-        Environment(
-            func.term.parameter,
-            arg,
-            func.env,
-        ),
+        func.env.append(func.term.parameter, arg),
     )
 
 
-def reduce(term, env=None):
+def reduce(term, env=environment()):
     """
     Reduce the given term to its normal form, if that normal form exists.
     """
@@ -66,7 +41,7 @@ def reduce(term, env=None):
         if action < 2:
             term, lexenv = arg.term, arg.env
             if type(term) == NameExpr:
-                susp = lookup(lexenv, term.parameter)
+                susp = lexenv.lookup(term.parameter)
                 if type(susp) == Suspension:
                     to_do.append((action, susp))
                 else:

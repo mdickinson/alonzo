@@ -8,7 +8,6 @@ from church.expr import (
     NameExpr,
     Parameter,
     unbind,
-    UndefinedNameError,
 )
 from church.token import tokenize, untokenize
 
@@ -73,7 +72,7 @@ class TestExpr(unittest.TestCase):
         for input in bad_inputs:
             with self.subTest(input=input):
                 ast = parse(tokenize(input))
-                with self.assertRaises(UndefinedNameError):
+                with self.assertRaises(LookupError):
                     bind(ast)
 
     def test_unbind(self):

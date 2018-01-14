@@ -10,14 +10,12 @@ import cmd
 
 from church.ast import ParseError
 from church.eval import (
-    Environment,
-    lookup as binding_lookup,
+    environment,
     reduce,
     Suspension,
 )
 from church.expr import (
     expr,
-    lookup as name_lookup,
     Parameter,
     UndefinedNameError,
     unexpr,
@@ -25,20 +23,12 @@ from church.expr import (
 from church.token import InvalidTerm, valid_id
 
 
-def bindings_from_env(env):
-    bindings = []
-    while env is not None:
-        var, env = env.var, env.env
-        bindings.append((var.name, var))
-    return bindings[::-1]
-
-
 class LambdaCmd(cmd.Cmd):
     prompt = "(church) "
 
     def __init__(self, *args, **kwargs):
         super(LambdaCmd, self).__init__(*args, **kwargs)
-        self.environment = None
+        self.environment = environment()
 
     def emptyline(self):
         pass
@@ -58,12 +48,8 @@ class LambdaCmd(cmd.Cmd):
 
         Returns a pair (success, term_or_message).
         """
-        # Construct bindings from environment.
-        # XXX Inefficient! Don't reconstruct every time!
-        bindings = bindings_from_env(self.environment)
-
         try:
-            term = expr(value_expr, bindings)
+            term = expr(value_expr, self.environment)
         except UndefinedNameError as e:
             name, = e.args
             return False,  "Undefined name: {!r}".format(name)
@@ -109,10 +95,9 @@ class LambdaCmd(cmd.Cmd):
             self.stdout.write(msg + "\n")
         else:
             term = term_or_msg
-            self.environment = Environment(
+            self.environment = self.environment.append(
                 var,
                 Suspension(term, self.environment),
-                self.environment,
             )
 
     def do_eval(self, arg):
@@ -130,18 +115,11 @@ class LambdaCmd(cmd.Cmd):
         r"""Show the definition of a previously defined name."""
         arg = arg.strip()
 
-        bindings = bindings_from_env(self.environment)
+        _, suspension = self.environment.lookup_by_name(arg)
 
-        try:
-            binding = name_lookup(bindings, arg)
-        except LookupError:
-            self.stdout.write("Unknown name {}\n".format(arg))
-            return
-
-        suspension = binding_lookup(self.environment, binding)
         replacements = {
-            parameter: name
-            for name, parameter in bindings_from_env(suspension.env)
+            parameter: parameter.name
+            for parameter, _ in suspension.env
         }
         self.stdout.write("{}\n".format(unexpr(
             suspension.term, replacements)))

@@ -5,6 +5,7 @@ import itertools
 
 import church.ast as ast
 from church.ast import AstToken, parse, unparse
+from church.environment import environment
 from church.token import tokenize, untokenize
 
 
@@ -15,16 +16,6 @@ class UndefinedNameError(Exception):
 class Parameter:
     def __init__(self, name):
         self.name = name
-
-
-def lookup(bindings, name):
-    """
-    Look up the given name in a list of bindings.
-    """
-    for parameter_name, parameter in reversed(bindings):
-        if parameter_name == name:
-            return parameter
-    raise UndefinedNameError(name)
 
 
 class Expr:
@@ -46,20 +37,20 @@ class Expr:
         """
         Convert an expr to its corresponding encoding as a bit string.
         """
-        bindings = {}
+        levels = {}
         bits = []
         for piece, arg in self.flatten():
             if piece == "APPLY":
                 bits.append("01")
             elif piece == "FUNCTION":
                 bits.append("00")
-                assert arg not in bindings
-                bindings[arg] = len(bindings)
+                assert arg not in levels
+                levels[arg] = len(levels)
             elif piece == "CLOSE_FUNCTION":
-                level = bindings.pop(arg)
-                assert level == len(bindings)
+                level = levels.pop(arg)
+                assert level == len(levels)
             elif piece == "NAME":
-                index = len(bindings) - 1 - bindings[arg]
+                index = len(levels) - 1 - levels[arg]
                 bits.append("1")
                 bits.append("1" * index)
                 bits.append("0")
@@ -122,27 +113,35 @@ YIELD = "yield"
 PROCESS = "process"
 
 
-def bind(ast, bindings=None):
+def bind(ast, env=None):
     """
     Match names to function parameters in the given Ast instance.
     """
     expr_stack = []
 
-    if bindings is None:
-        bindings = []
+    if env is None:
+        env = environment()
 
     for action, arg in ast.flatten():
         if action == AstToken.NAME:
-            parameter = lookup(bindings, arg)
-            expr_stack.append(
-                NameExpr(parameter)
-            )
+            parameter, value = env.lookup_by_name(arg)
+            if isinstance(value, NameExpr):
+                # name added by this function
+                expr_stack.append(value)
+            else:
+                # suspension from definition
+                expr_stack.append(NameExpr(parameter))
+
         elif action == AstToken.OPEN_FUNCTION:
             parameter = Parameter(arg)
-            bindings.append((arg, parameter))
+            expr_stack.append(parameter)
+            value = NameExpr(parameter)
+            env = env.append(parameter, value)
         elif action == AstToken.CLOSE_FUNCTION:
-            name, parameter = bindings.pop()
-            expr_stack.append(FunctionExpr(parameter, expr_stack.pop()))
+            env = env.pop()
+            body = expr_stack.pop()
+            parameter = expr_stack.pop()
+            expr_stack.append(FunctionExpr(parameter, body))
         elif action == AstToken.OPEN_APPLY:
             pass
         elif action == AstToken.CLOSE_APPLY:
@@ -210,8 +209,8 @@ def unbind(expr, replacements=None):
     return result
 
 
-def expr(input, bindings=None):
-    return bind(parse(tokenize(input)), bindings)
+def expr(input, env=None):
+    return bind(parse(tokenize(input)), env)
 
 
 def unexpr(expr, replacements=None):
