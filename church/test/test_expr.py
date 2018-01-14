@@ -1,23 +1,13 @@
 import unittest
 
-from church.ast import parse, unparse
 from church.expr import (
     ApplyExpr,
-    bind,
+    expr,
     FunctionExpr,
     NameExpr,
     Parameter,
-    unbind,
+    unexpr,
 )
-from church.token import tokenize, untokenize
-
-
-def expr(input):
-    return bind(parse(tokenize(input)))
-
-
-def unexpr(expr):
-    return untokenize(unparse(unbind(expr)))
 
 
 class TestExpr(unittest.TestCase):
@@ -71,9 +61,8 @@ class TestExpr(unittest.TestCase):
         ]
         for input in bad_inputs:
             with self.subTest(input=input):
-                ast = parse(tokenize(input))
                 with self.assertRaises(LookupError):
-                    bind(ast)
+                    expr(input)
 
     def test_unbind(self):
         test_inputs = [

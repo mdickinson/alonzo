@@ -3,8 +3,7 @@ Lambda expressions, complete with bindings from names to binding points.
 """
 import itertools
 
-import church.ast as ast
-from church.ast import AstToken, parse, unparse
+from church.ast import Apply, AstToken, Function, Name, parse, unparse
 from church.environment import environment
 from church.token import tokenize, untokenize
 
@@ -113,14 +112,11 @@ YIELD = "yield"
 PROCESS = "process"
 
 
-def bind(ast, env=None):
+def bind(ast, env):
     """
     Match names to function parameters in the given Ast instance.
     """
     expr_stack = []
-
-    if env is None:
-        env = environment()
 
     for action, arg in ast.flatten():
         if action == AstToken.NAME:
@@ -188,7 +184,7 @@ def unbind(expr, replacements=None):
         if piece == "CLOSE_APPLY":
             argument = result_stack.pop()
             function = result_stack.pop()
-            result_stack.append(ast.Apply(function, argument))
+            result_stack.append(Apply(function, argument))
         elif piece == "FUNCTION":
             name = name_avoiding(names_in_scope, arg.name)
             assert name not in names_in_scope
@@ -199,17 +195,17 @@ def unbind(expr, replacements=None):
         elif piece == "CLOSE_FUNCTION":
             body = result_stack.pop()
             name = result_stack.pop()
-            result_stack.append(ast.Function(name, body))
+            result_stack.append(Function(name, body))
             replacements.pop(arg)
             names_in_scope.remove(name)
         elif piece == "NAME":
-            result_stack.append(ast.Name(replacements[arg]))
+            result_stack.append(Name(replacements[arg]))
 
     result, = result_stack
     return result
 
 
-def expr(input, env=None):
+def expr(input, env=environment()):
     return bind(parse(tokenize(input)), env)
 
 
