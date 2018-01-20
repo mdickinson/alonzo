@@ -39,6 +39,15 @@ exit
         output = self.process_script(test_script)
         self.assertEqual(output, r"\f x.f(f(f(f x)))""\n")
 
+    def test_let_undefined_name(self):
+        test_script = r"""
+let two f x = f(f x)
+let four = add two two
+exit
+"""
+        output = self.process_script(test_script)
+        self.assertEqual(output, "Undefined name: add\n")
+
     def test_comments(self):
         test_script = r"""
 let two f x = f (f x)  # can define functions using patterns

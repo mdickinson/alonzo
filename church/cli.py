@@ -60,8 +60,7 @@ class LambdaCmd(cmd.Cmd):
         try:
             term = expr(value_expr, self.environment)
         except UndefinedNameError as e:
-            name, = e.args
-            return False,  "Undefined name: {!r}".format(name)
+            return False, "Undefined name: {}".format(*e.args)
         except (TokenizationError, ParseError) as e:
             return False, "Invalid syntax. {}".format(e)
         else:
@@ -151,7 +150,7 @@ class LambdaCmd(cmd.Cmd):
         try:
             _, suspension = self.environment.lookup_by_name(id)
         except UndefinedNameError as e:
-            self.stdout.write("{}\n".format(e))
+            self.stdout.write("Undefined name: {}\n".format(*e.args))
             return
 
         replacements = {
