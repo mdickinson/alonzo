@@ -1,14 +1,18 @@
 """
 To do:
 
-- implement show
 - catch KeyboardInterrupt while evaluating
 - add intro text
+- show all?
+- show statistics
 
 """
 import cmd
 
 from church.ast import ParseError
+from church.environment import (
+    UndefinedNameError,
+)
 from church.eval import (
     environment,
     reduce,
@@ -17,10 +21,15 @@ from church.eval import (
 from church.expr import (
     expr,
     Parameter,
-    UndefinedNameError,
     unexpr,
 )
-from church.token import InvalidTerm, valid_id
+# XXX Shouldn't need valid_id.
+from church.token import (
+    TokenizationError,
+    tokenize,
+    TokenType,
+    valid_id,
+)
 
 
 class LambdaCmd(cmd.Cmd):
@@ -53,7 +62,7 @@ class LambdaCmd(cmd.Cmd):
         except UndefinedNameError as e:
             name, = e.args
             return False,  "Undefined name: {!r}".format(name)
-        except (InvalidTerm, ParseError) as e:
+        except (TokenizationError, ParseError) as e:
             return False, "Invalid syntax. {}".format(e)
         else:
             return True, term
@@ -111,11 +120,39 @@ class LambdaCmd(cmd.Cmd):
             result = reduce(term, self.environment)
             self.stdout.write("{}\n".format(unexpr(result)))
 
+    def _parse_show_arg(self, arg):
+        """
+        Parse an argument to a 'show' command.
+
+        Raises ParseError on failure.
+        """
+        # Move to ast.py?
+
+        # XXX Need to catch tokenization errors, too.
+        tokens = tokenize(arg)
+        id_token = next(tokens)
+        if id_token.type != TokenType.ID:
+            raise ParseError("Not an identifier: {!r}".format(arg))
+        end_token = next(tokens)
+        if end_token.type != TokenType.END:
+            raise ParseError(
+                "Unexpected characters after identifier: {!r}".format(arg))
+        return id_token.value
+
     def do_show(self, arg):
         r"""Show the definition of a previously defined name."""
-        arg = arg.strip()
 
-        _, suspension = self.environment.lookup_by_name(arg)
+        try:
+            id = self._parse_show_arg(arg)
+        except (TokenizationError, ParseError):
+            self.stdout.write("Usage: show <identifier>\n")
+            return
+
+        try:
+            _, suspension = self.environment.lookup_by_name(id)
+        except UndefinedNameError as e:
+            self.stdout.write("{}\n".format(e))
+            return
 
         replacements = {
             parameter: parameter.name

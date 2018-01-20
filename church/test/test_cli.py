@@ -5,19 +5,17 @@ from church.cli import LambdaCmd
 
 
 class TestCli(unittest.TestCase):
-    def setUp(self):
-        self.stdout = io.StringIO()
-        self.cmd = LambdaCmd(stdout=self.stdout)
-
     def process_script(self, script):
+        stdout = io.StringIO()
+        cmd = LambdaCmd(stdout=stdout)
         lines = iter(script.splitlines())
         stop = None
         while not stop:
             line = next(lines)
-            line = self.cmd.precmd(line)
-            stop = self.cmd.onecmd(line)
-            stop = self.cmd.postcmd(stop, line)
-        return self.stdout.getvalue()
+            line = cmd.precmd(line)
+            stop = cmd.onecmd(line)
+            stop = cmd.postcmd(stop, line)
+        return stdout.getvalue()
 
     def test_cmd(self):
         test_script = r"""
@@ -73,6 +71,36 @@ exit
         self.assertEqual(len(output_lines), 2)
         self.assertEqual(output_lines[0], r"\f x.f(f x)")
         self.assertEqual(output_lines[1], r"pow two two")
+
+    def test_show_errors(self):
+        test_script = r"""
+show bogus
+exit
+"""
+        output = self.process_script(test_script)
+        output_lines = output.splitlines()
+        self.assertEqual(len(output_lines), 1)
+        self.assertEqual(output_lines[0], "Undefined name: bogus")
+
+    def test_show_usage_error(self):
+        bad_show_arguments = [
+            r'\f x.f x',
+            r'add two two',
+            r'(add)',
+            r'% #$%!!!',
+            r'',
+        ]
+        script_template = r"""
+show {bad}
+exit
+"""
+        for bad in bad_show_arguments:
+            with self.subTest(bad=bad):
+                test_script = script_template.format(bad=bad)
+                output = self.process_script(test_script)
+                output_lines = output.splitlines()
+                self.assertEqual(len(output_lines), 1)
+                self.assertEqual(output_lines[0], "Usage: show <identifier>")
 
     def test_multiple_bindings(self):
         # Check behaviour of multiple bindings using the same name:

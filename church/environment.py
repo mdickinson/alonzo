@@ -2,6 +2,13 @@
 # NameExpr instances or Suspension instances.
 
 
+class UndefinedNameError(Exception):
+    """
+    Exception raised when trying to resolve a non-existent name.
+    """
+    pass
+
+
 class Environment:
     def lookup(self, var):
         """
@@ -13,7 +20,7 @@ class Environment:
             if self.var == var:
                 return self.val
             self = self.env
-        raise LookupError("Variable not in environment: {}".format(var))
+        raise UndefinedNameError("Variable not in environment: {}".format(var))
 
     def lookup_by_name(self, name):
         """
@@ -26,7 +33,7 @@ class Environment:
             if self.var.name == name:
                 return self.var, self.val
             self = self.env
-        raise LookupError("Name not in environment: {}".format(name))
+        raise UndefinedNameError("Undefined name: {}".format(name))
 
     def __iter__(self):
         while self:

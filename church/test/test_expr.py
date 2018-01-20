@@ -1,5 +1,8 @@
 import unittest
 
+from church.environment import (
+    UndefinedNameError,
+)
 from church.expr import (
     ApplyExpr,
     expr,
@@ -61,7 +64,7 @@ class TestExpr(unittest.TestCase):
         ]
         for input in bad_inputs:
             with self.subTest(input=input):
-                with self.assertRaises(LookupError):
+                with self.assertRaises(UndefinedNameError):
                     expr(input)
 
     def test_unbind(self):

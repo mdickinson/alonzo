@@ -8,7 +8,7 @@ IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + string.digits + "_")
 WHITESPACE = set(" \n")
 
 
-class InvalidTerm(Exception):
+class TokenizationError(Exception):
     pass
 
 
@@ -95,7 +95,7 @@ def tokenize(input):
                 yield END_TOKEN
                 break
             else:
-                raise InvalidTerm(
+                raise TokenizationError(
                     "Invalid character in string: {!r}".format(c))
 
 

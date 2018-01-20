@@ -8,10 +8,6 @@ from church.environment import environment
 from church.token import tokenize, untokenize
 
 
-class UndefinedNameError(Exception):
-    pass
-
-
 class Parameter:
     def __init__(self, name):
         self.name = name
