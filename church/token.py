@@ -8,7 +8,10 @@ IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + string.digits + "_")
 WHITESPACE = set(" \n")
 
 
-class TokenizationError(Exception):
+class TokenError(Exception):
+    """
+    Exception raised when a string can't be parsed into a stream of tokens.
+    """
     pass
 
 
@@ -63,10 +66,6 @@ def ID_TOKEN(name):
     return Token(TokenType.ID, name)
 
 
-def valid_id(name):
-    return name and set(name) <= IDENTIFIER_CHARACTERS
-
-
 def tokenize(input):
     """
     Tokenize the given input, generating a stream of tokens.
@@ -98,7 +97,7 @@ def tokenize(input):
                 yield END_TOKEN
                 break
             else:
-                raise TokenizationError(
+                raise TokenError(
                     "Invalid character in string: {!r}".format(c))
 
 

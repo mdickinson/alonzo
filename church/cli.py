@@ -25,7 +25,7 @@ from church.expr import (
     unexpr,
 )
 from church.token import (
-    TokenizationError,
+    TokenError,
 )
 
 
@@ -67,7 +67,7 @@ class LambdaCmd(cmd.Cmd):
         """
         try:
             name, body = definition(arg, self.environment)
-        except (UndefinedNameError, TokenizationError, ParseError) as e:
+        except (UndefinedNameError, TokenError, ParseError) as e:
             self.stdout.write("{}\n".format(e))
             return
 
@@ -81,7 +81,7 @@ class LambdaCmd(cmd.Cmd):
 
         try:
             term = expr(arg, self.environment)
-        except (UndefinedNameError, ParseError, TokenizationError) as e:
+        except (UndefinedNameError, ParseError, TokenError) as e:
             self.stdout.write("{}\n".format(e))
             return
 
@@ -93,7 +93,7 @@ class LambdaCmd(cmd.Cmd):
 
         try:
             _, suspension = name(arg, self.environment)
-        except (TokenizationError, ParseError):
+        except (TokenError, ParseError):
             self.stdout.write("Usage: show <identifier>\n")
             return
         except UndefinedNameError as e:
