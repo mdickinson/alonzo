@@ -2,9 +2,9 @@
 To do:
 
 - catch KeyboardInterrupt while evaluating
-- add intro text
 - show all?
 - show statistics
+- fix up exception handling; decorator?
 
 """
 import cmd
@@ -19,21 +19,26 @@ from church.eval import (
     Suspension,
 )
 from church.expr import (
+    definition,
     expr,
-    Parameter,
+    name,
     unexpr,
 )
-# XXX Shouldn't need valid_id.
 from church.token import (
     TokenizationError,
-    tokenize,
-    TokenType,
-    valid_id,
 )
+
+
+INTRO_TEXT = """\
+Welcome to the interactive lambda calculus interpreter.
+Type 'help' to see supported commands.
+"""
 
 
 class LambdaCmd(cmd.Cmd):
     prompt = "(church) "
+
+    intro = INTRO_TEXT
 
     def __init__(self, *args, **kwargs):
         super(LambdaCmd, self).__init__(*args, **kwargs)
@@ -48,109 +53,51 @@ class LambdaCmd(cmd.Cmd):
         return line.strip()
 
     def do_exit(self, arg):
-        """Leave the interpreter."""
+        r"""Leave the interpreter."""
         return True
-
-    def _parse_term(self, value_expr):
-        """
-        Parse a given term.
-
-        Returns a pair (success, term_or_message).
-        """
-        try:
-            term = expr(value_expr, self.environment)
-        except UndefinedNameError as e:
-            return False, "Undefined name: {}".format(*e.args)
-        except (TokenizationError, ParseError) as e:
-            return False, "Invalid syntax. {}".format(e)
-        else:
-            return True, term
 
     def do_let(self, arg):
         r"""Define a name for a lambda term.
 
-        Example
-        -------
+        Examples
+        --------
         let two = \f x.f(f x)
+        let add m n = \f x.m f(n f x)
+        let four = add two two
         """
-        pattern, equal, value_expr = arg.partition("=")
-        pattern = pattern.strip()
-        value_expr = value_expr.strip()
-
-        if not pattern or not value_expr:
-            self.stdout.write("Usage: let <name> <args> = <expr>\n")
+        try:
+            name, body = definition(arg, self.environment)
+        except (UndefinedNameError, TokenizationError, ParseError) as e:
+            self.stdout.write("{}\n".format(e))
             return
 
-        pieces = pattern.split()
-        for piece in pieces:
-            if not valid_id(piece):
-                self.stdout.write("Invalid name: {!r}\n".format(piece))
-                return
-
-        varname, *args = pieces
-        if args:
-            value_expr = "\{}.{}".format(' '.join(args), value_expr)
-
-        if not valid_id(varname):
-            self.stdout.write("Invalid name: {!r}\n".format(varname))
-            return
-
-        var = Parameter(varname)
-        success, term_or_msg = self._parse_term(value_expr)
-
-        if not success:
-            msg = term_or_msg
-            self.stdout.write(msg + "\n")
-        else:
-            term = term_or_msg
-            self.environment = self.environment.append(
-                var,
-                Suspension(term, self.environment),
-            )
+        self.environment = self.environment.append(
+            name,
+            Suspension(body, self.environment),
+        )
 
     def do_eval(self, arg):
         r"""Evaluate a lambda term, reducing to normal form."""
-        success, term_or_msg = self._parse_term(arg)
-        if not success:
-            msg = term_or_msg
-            self.stdout.write(msg + "\n")
-        else:
-            term = term_or_msg
-            result = reduce(term, self.environment)
-            self.stdout.write("{}\n".format(unexpr(result)))
 
-    def _parse_show_arg(self, arg):
-        """
-        Parse an argument to a 'show' command.
+        try:
+            term = expr(arg, self.environment)
+        except (UndefinedNameError, ParseError, TokenizationError) as e:
+            self.stdout.write("{}\n".format(e))
+            return
 
-        Raises ParseError on failure.
-        """
-        # Move to ast.py?
-
-        # XXX Need to catch tokenization errors, too.
-        tokens = tokenize(arg)
-        id_token = next(tokens)
-        if id_token.type != TokenType.ID:
-            raise ParseError("Not an identifier: {!r}".format(arg))
-        end_token = next(tokens)
-        if end_token.type != TokenType.END:
-            raise ParseError(
-                "Unexpected characters after identifier: {!r}".format(arg))
-        return id_token.value
+        result = reduce(term, self.environment)
+        self.stdout.write("{}\n".format(unexpr(result)))
 
     def do_show(self, arg):
         r"""Show the definition of a previously defined name."""
 
         try:
-            id = self._parse_show_arg(arg)
+            _, suspension = name(arg, self.environment)
         except (TokenizationError, ParseError):
             self.stdout.write("Usage: show <identifier>\n")
             return
-
-        try:
-            _, suspension = self.environment.lookup_by_name(id)
         except UndefinedNameError as e:
-            self.stdout.write("Undefined name: {}\n".format(*e.args))
+            self.stdout.write("{}\n".format(e))
             return
 
         replacements = {

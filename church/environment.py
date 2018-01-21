@@ -33,7 +33,7 @@ class Environment:
             if self.var.name == name:
                 return self.var, self.val
             self = self.env
-        raise UndefinedNameError(name)
+        raise UndefinedNameError("Undefined name: {}".format(name))
 
     def __iter__(self):
         while self:

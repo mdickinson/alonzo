@@ -28,6 +28,28 @@ exit
         output = self.process_script(test_script)
         self.assertEqual(output, r"\f x.f(f(f(f x)))""\n")
 
+    def test_eval_errors(self):
+        test_script = r"""
+eval nothing
+exit
+"""
+        output = self.process_script(test_script)
+        self.assertEqual(output, "Undefined name: nothing\n")
+
+        test_script = r"""
+eval 2 + 3 * 7 / 4
+exit
+"""
+        output = self.process_script(test_script)
+        self.assertEqual(output, "Invalid character in string: '+'\n")
+
+        test_script = r"""
+eval (two three))
+exit
+"""
+        output = self.process_script(test_script)
+        self.assertEqual(output, "Unexpected token: ')'\n")
+
     def test_let_patterns(self):
         test_script = r"""
 let two f x = f(f x)
@@ -47,6 +69,21 @@ exit
 """
         output = self.process_script(test_script)
         self.assertEqual(output, "Undefined name: add\n")
+
+    def test_let_syntax_errors(self):
+        test_script = r"""
+let two = ???
+exit
+"""
+        output = self.process_script(test_script)
+        self.assertEqual(output, "Invalid character in string: '?'\n")
+
+        test_script = r"""
+let two = three ( )
+exit
+"""
+        output = self.process_script(test_script)
+        self.assertEqual(output, "Unexpected token: ')'\n")
 
     def test_comments(self):
         test_script = r"""

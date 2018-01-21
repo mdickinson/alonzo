@@ -3,7 +3,16 @@ Lambda expressions, complete with bindings from names to binding points.
 """
 import itertools
 
-from church.ast import Apply, AstToken, Function, Name, parse, unparse
+from church.ast import (
+    Apply,
+    AstToken,
+    Function,
+    Name,
+    parse,
+    parse_definition,
+    parse_name,
+    unparse,
+)
 from church.environment import environment
 from church.token import tokenize, untokenize
 
@@ -147,6 +156,26 @@ def bind(ast, env):
     return result
 
 
+def bind_definition(definition, env):
+    """
+    Bind variables in a definition.
+    """
+    parameters = []
+    for arg in definition.arguments:
+        parameter = Parameter(arg)
+        value = NameExpr(parameter)
+        env = env.append(parameter, value)
+        parameters.append(parameter)
+    body = bind(definition.body, env)
+    while parameters:
+        body = FunctionExpr(parameters.pop(), body)
+    return Parameter(definition.name), body
+
+
+def bind_name(name, env):
+    return env.lookup_by_name(name)
+
+
 DIGITS = "0123456789"
 
 
@@ -203,6 +232,14 @@ def unbind(expr, replacements=None):
 
 def expr(input, env=environment()):
     return bind(parse(tokenize(input)), env)
+
+
+def definition(input, env=environment()):
+    return bind_definition(parse_definition(tokenize(input)), env)
+
+
+def name(input, env=environment()):
+    return bind_name(parse_name(tokenize(input)), env)
 
 
 def unexpr(expr, replacements=None):

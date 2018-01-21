@@ -11,7 +11,10 @@ from church.token import (
 
 # Classes providing the AST for the parsed expressions.
 AstToken = enum.Enum(
-    "AstToken", "NAME OPEN_FUNCTION CLOSE_FUNCTION OPEN_APPLY CLOSE_APPLY")
+    "AstToken",
+    "NAME OPEN_FUNCTION CLOSE_FUNCTION OPEN_APPLY CLOSE_APPLY"
+    " OPEN_DEFINITION DEFINITION_ARGS"
+)
 
 
 class Ast:
@@ -86,6 +89,20 @@ class Function(Ast):
         ]
 
 
+class Definition(Ast):
+    def __init__(self, name, arguments, body):
+        self.name = name
+        self.arguments = arguments
+        self.body = body
+
+    def _pieces(self):
+        return [
+            ("YIELD", (AstToken.OPEN_DEFINITION, self.name)),
+            ("YIELD", (AstToken.DEFINITION_ARGS, self.arguments)),
+            ("PROCESS", self.body),
+        ]
+
+
 #: Extra non-terminal token type.
 ATOM = "atom"
 
@@ -134,6 +151,7 @@ PARSE_EXPR_METHODS = {
     TokenType.SLASH: "parse_expr_slash",
     TokenType.DOT: "parse_expr_dot",
     TokenType.END: "parse_expr_end",
+    TokenType.EQUAL: "parse_expr_fail",
     ATOM: "parse_expr_atom",
 }
 
@@ -168,6 +186,9 @@ class LambdaParser(object):
         if not names or token.type != TokenType.DOT:
             raise ParseError("Invalid name sequence")
         self.values.append(names)
+
+    def parse_expr_fail(self):
+        raise ParseError("Invalid token: {}".format(self.token.value))
 
     def parse_expr_id(self):
         self.tokens.push(ATOM_TOKEN(Name(self.token.value)))
@@ -220,9 +241,54 @@ class LambdaParser(object):
         except ParseSuccess:
             return self.values.pop()
 
+    def parse_definition(self):
+        """
+        Parse a token stream into a definition.
+        """
+        # Parse function name.
+        token = next(self.tokens)
+        if token.type != TokenType.ID:
+            raise ParseError("Expected identifier")
+        name = token.value
+
+        # Parse argument names and equals.
+        args = []
+        token = next(self.tokens)
+        while token.type == TokenType.ID:
+            args.append(token.value)
+            token = next(self.tokens)
+
+        if token.type != TokenType.EQUAL:
+            raise ParseError("Expected =")
+
+        body = self.parse_expr()
+        return Definition(name, args, body)
+
+    def parse_name(self):
+        """
+        Parse a token stream into a single identifier.
+        """
+        token = next(self.tokens)
+        if token.type != TokenType.ID:
+            raise ParseError("Expected identifier")
+        name = token.value
+
+        token = next(self.tokens)
+        if token.type != TokenType.END:
+            raise ParseError("Unexpected additional tokens")
+        return name
+
 
 def parse(tokens):
     return LambdaParser(TokenStream(tokens)).parse_expr()
+
+
+def parse_definition(tokens):
+    return LambdaParser(TokenStream(tokens)).parse_definition()
+
+
+def parse_name(tokens):
+    return LambdaParser(TokenStream(tokens)).parse_name()
 
 
 class UnparseState(enum.Enum):

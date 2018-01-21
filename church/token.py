@@ -22,6 +22,7 @@ class TokenType(enum.Enum):
     RIGHT = enum.auto()
     SLASH = enum.auto()
     DOT = enum.auto()
+    EQUAL = enum.auto()
 
     # Pseudo-token used to indicate the end of the string.
     END = enum.auto()
@@ -49,6 +50,8 @@ SINGLE_CHAR_TOKEN = {
     ")": Token(TokenType.RIGHT, ")"),
     "\\": Token(TokenType.SLASH, "\\"),
     ".": Token(TokenType.DOT, "."),
+    # Not used in lambda expressions, but used in let commands in the cli
+    "=": Token(TokenType.EQUAL, "="),
 }
 
 #: Token used to mark the end of the stream.

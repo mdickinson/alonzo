@@ -1,6 +1,15 @@
 import unittest
 
-from church.ast import Apply, Function, Name, parse, ParseError, unparse
+from church.ast import (
+    Apply,
+    Definition,
+    Function,
+    Name,
+    parse,
+    parse_definition,
+    ParseError,
+    unparse,
+)
 from church.token import (
     END_TOKEN, ID_TOKEN, SINGLE_CHAR_TOKEN, tokenize, untokenize)
 
@@ -105,6 +114,7 @@ class TestParse(unittest.TestCase):
             ".",
             "x.",
             "(.",
+            "x = y",
             "\\",
             "\\\\",
             r"\(",
@@ -177,3 +187,37 @@ class TestParse(unittest.TestCase):
             Apply(Apply(x, x), Apply(x, x)),
         )
         self.assertNotEqual(Function("x", x), Function("y", y))
+
+    def test_parse_definition(self):
+        f, m, n, x, y = map(Name, "fmnxy")
+        test_pairs = [
+            ("f = x y", Definition("f", [], Apply(x, y))),
+            ("f arg1 = x", Definition("f", ["arg1"], x)),
+            (
+                r"add m n = \f x.m f(n f x)",
+                Definition(
+                    "add", ["m", "n"],
+                    Function(
+                        "f",
+                        Function(
+                            "x",
+                            Apply(Apply(m, f), Apply(Apply(n, f), x)),
+                        )
+                    ),
+                ),
+            )
+        ]
+
+        for code, definition in test_pairs:
+            with self.subTest(code=code):
+                self.assertEqual(parse_definition(tokenize(code)), definition)
+
+    def test_parse_bad_definitions(self):
+        bad_definitions = [
+            "f x y",
+            "= x y",
+            "f x = ((((x)))",
+        ]
+        for code in bad_definitions:
+            with self.assertRaises(ParseError):
+                parse_definition(tokenize(code))
