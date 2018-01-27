@@ -5,7 +5,6 @@ from church.token import (
     ID_TOKEN,
     SINGLE_CHAR_TOKEN,
     Token,
-    TokenType,
 )
 
 
@@ -145,14 +144,14 @@ SEXPR = "-expr"
 
 
 PARSE_EXPR_METHODS = {
-    TokenType.ID: "parse_expr_id",
-    TokenType.LEFT: "parse_expr_left",
-    TokenType.RIGHT: "parse_expr_right",
-    TokenType.SLASH: "parse_expr_slash",
-    TokenType.DOT: "parse_expr_dot",
-    TokenType.END: "parse_expr_end",
-    TokenType.EQUAL: "parse_expr_fail",
-    ATOM: "parse_expr_atom",
+    "identifier": "parse_expr_id",
+    "left": "parse_expr_left",
+    "right": "parse_expr_right",
+    "slash": "parse_expr_slash",
+    "dot": "parse_expr_dot",
+    "end": "parse_expr_end",
+    "equal": "parse_expr_fail",
+    "atom": "parse_expr_atom",
 }
 
 
@@ -180,10 +179,10 @@ class LambdaParser(object):
         names = []
         while True:
             token = next(self.tokens)
-            if token.type != TokenType.ID:
+            if token.type != "identifier":
                 break
             names.append(token.value)
-        if not names or token.type != TokenType.DOT:
+        if not names or token.type != "dot":
             raise ParseError("Invalid name sequence")
         self.values.append(names)
 
@@ -247,18 +246,18 @@ class LambdaParser(object):
         """
         # Parse function name.
         token = next(self.tokens)
-        if token.type != TokenType.ID:
+        if token.type != "identifier":
             raise ParseError("Expected identifier")
         name = token.value
 
         # Parse argument names and equals.
         args = []
         token = next(self.tokens)
-        while token.type == TokenType.ID:
+        while token.type == "identifier":
             args.append(token.value)
             token = next(self.tokens)
 
-        if token.type != TokenType.EQUAL:
+        if token.type != "equal":
             raise ParseError("Expected =")
 
         body = self.parse_expr()
@@ -269,12 +268,12 @@ class LambdaParser(object):
         Parse a token stream into a single identifier.
         """
         token = next(self.tokens)
-        if token.type != TokenType.ID:
+        if token.type != "identifier":
             raise ParseError("Expected identifier")
         name = token.value
 
         token = next(self.tokens)
-        if token.type != TokenType.END:
+        if token.type != "end":
             raise ParseError("Unexpected additional tokens")
         return name
 

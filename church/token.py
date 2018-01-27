@@ -1,23 +1,7 @@
 """
 Tokenizing and untokenizing.
 """
-import enum
 import re
-
-
-class TokenType(enum.Enum):
-    """
-    Types of tokens.
-    """
-    # Tokens corresponding directly to text fragments.
-    ID = "identifier"
-    LEFT = "left"
-    RIGHT = "right"
-    SLASH = "slash"
-    DOT = "dot"
-    EQUAL = "equal"
-    # Pseudo-token used to indicate the end of the string.
-    END = "end"
 
 
 class Token:
@@ -78,29 +62,7 @@ def tokenize(input):
         elif token_type == "whitespace":
             pass
         else:
-            yield Token(TokenType(token_type), token_value)
-
-
-# Convenience constants and functions for use in testing and
-# untokenization.
-
-#: Tokens consisting of a single punctuation character.
-SINGLE_CHAR_TOKEN = {
-    "(": Token(TokenType.LEFT, "("),
-    ")": Token(TokenType.RIGHT, ")"),
-    "\\": Token(TokenType.SLASH, "\\"),
-    ".": Token(TokenType.DOT, "."),
-    # Not used in lambda expressions, but used in let commands in the cli
-    "=": Token(TokenType.EQUAL, "="),
-}
-
-#: Token used to mark the end of the stream.
-END_TOKEN = Token(TokenType.END, "")
-
-
-#: Shortcut for creating an identifier token.
-def ID_TOKEN(name):
-    return Token(TokenType.ID, name)
+            yield Token(token_type, token_value)
 
 
 def untokenize(tokens):
@@ -110,7 +72,7 @@ def untokenize(tokens):
     output = []
     last_was_id = False
     for token in tokens:
-        if token.type == TokenType.ID:
+        if token.type == "identifier":
             if last_was_id:
                 output.append(" ")
             last_was_id = True
@@ -118,3 +80,25 @@ def untokenize(tokens):
             last_was_id = False
         output.append(token.value)
     return ''.join(output)
+
+
+# Convenience constants and functions for use in testing and
+# untokenization.
+
+#: Tokens consisting of a single punctuation character.
+SINGLE_CHAR_TOKEN = {
+    "(": Token("left", "("),
+    ")": Token("right", ")"),
+    "\\": Token("slash", "\\"),
+    ".": Token("dot", "."),
+    # Not used in lambda expressions, but used in let commands in the cli
+    "=": Token("equal", "="),
+}
+
+#: Token used to mark the end of the stream.
+END_TOKEN = Token("end", "")
+
+
+#: Shortcut for creating an identifier token.
+def ID_TOKEN(name):
+    return Token("identifier", name)
