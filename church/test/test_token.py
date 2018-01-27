@@ -43,6 +43,12 @@ class TestToken(unittest.TestCase):
                 actual_tokens = list(tokenize(input))
                 self.assertEqual(actual_tokens, expected_tokens)
 
+    def test_non_ascii_input(self):
+        # Non-ascii identifiers and whitespace should be permitted
+        id1, id2 = "Μῆνιν", "ἄειδε"
+        input = id1 + "\N{EN SPACE}" + id2
+        self.assertEqual(list(tokenize(input)), [ID(id1), ID(id2), END])
+
     def test_untokenize(self):
         X = ID("x")
         test_pairs = [

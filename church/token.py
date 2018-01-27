@@ -1,18 +1,8 @@
+"""
+Tokenizing and untokenizing.
+"""
 import enum
-import string
-
-#: Characters that are valid to use in an identifier.
-IDENTIFIER_CHARACTERS = set(string.ascii_lowercase + string.digits + "_")
-
-#: Characters that are valid whitespace.
-WHITESPACE = set(" \n")
-
-
-class TokenError(Exception):
-    """
-    Exception raised when a string can't be parsed into a stream of tokens.
-    """
-    pass
+import re
 
 
 class TokenType(enum.Enum):
@@ -20,15 +10,14 @@ class TokenType(enum.Enum):
     Types of tokens.
     """
     # Tokens corresponding directly to text fragments.
-    ID = enum.auto()
-    LEFT = enum.auto()
-    RIGHT = enum.auto()
-    SLASH = enum.auto()
-    DOT = enum.auto()
-    EQUAL = enum.auto()
-
+    ID = "identifier"
+    LEFT = "left"
+    RIGHT = "right"
+    SLASH = "slash"
+    DOT = "dot"
+    EQUAL = "equal"
     # Pseudo-token used to indicate the end of the string.
-    END = enum.auto()
+    END = "end"
 
 
 class Token:
@@ -47,6 +36,54 @@ class Token:
         )
 
 
+class TokenError(Exception):
+    """
+    Exception raised when a string can't be parsed into a stream of tokens.
+    """
+    pass
+
+
+# Regex for tokenization.
+TOKEN_REGEX = re.compile(
+    "|".join(
+        "(?P<{}>{})".format(groupname, regex)
+        for groupname, regex in [
+            ("whitespace", r"\s+"),
+            ("identifier", r"\w+"),
+            ("left", r"\("),
+            ("right", r"\)"),
+            ("dot", r"\."),
+            ("equal", r"="),
+            ("slash", r"\\"),
+            ("end", r"\Z"),
+            ("invalid", r"."),
+        ]
+    )
+)
+
+
+def tokenize(input):
+    """
+    Tokenize the given input string.
+
+    Returns a generator that yields individual tokens.  Skips whitespace, and
+    raises TokenError on invalid input.
+    """
+    for match in TOKEN_REGEX.finditer(input):
+        token_type = match.lastgroup
+        token_value = match.group(token_type)
+        if token_type == "invalid":
+            raise TokenError(
+                "Invalid character in string: {!r}".format(token_value))
+        elif token_type == "whitespace":
+            pass
+        else:
+            yield Token(TokenType(token_type), token_value)
+
+
+# Convenience constants and functions for use in testing and
+# untokenization.
+
 #: Tokens consisting of a single punctuation character.
 SINGLE_CHAR_TOKEN = {
     "(": Token(TokenType.LEFT, "("),
@@ -64,41 +101,6 @@ END_TOKEN = Token(TokenType.END, "")
 #: Shortcut for creating an identifier token.
 def ID_TOKEN(name):
     return Token(TokenType.ID, name)
-
-
-def tokenize(input):
-    """
-    Tokenize the given input, generating a stream of tokens.
-
-    The token stream always finishes with a token of type END.
-    """
-    chars = iter(input)
-
-    # Our tokenizer is a finite state machine with just two states: either
-    # we're parsing an identifier, or we're not.
-    parsing_id = False
-    while True:
-        c = next(chars, None)
-        if c in IDENTIFIER_CHARACTERS:
-            if not parsing_id:
-                parsing_id = True
-                id_chars = []
-            id_chars.append(c)
-        else:
-            if parsing_id:
-                name = ''.join(id_chars)
-                yield ID_TOKEN(name)
-                parsing_id = False
-            if c in SINGLE_CHAR_TOKEN:
-                yield SINGLE_CHAR_TOKEN[c]
-            elif c in WHITESPACE:
-                pass
-            elif c is None:
-                yield END_TOKEN
-                break
-            else:
-                raise TokenError(
-                    "Invalid character in string: {!r}".format(c))
 
 
 def untokenize(tokens):
