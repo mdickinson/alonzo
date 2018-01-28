@@ -14,8 +14,7 @@ class Token:
 
     def __eq__(self, other):
         return (
-            type(self) == type(other)
-            and self.type == other.type
+            self.type == other.type
             and self.value == other.value
         )
 
