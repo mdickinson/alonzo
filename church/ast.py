@@ -1,3 +1,15 @@
+# XXX Top-level function to tokenize *and* parse: users of ast
+# should be able to use it without needing to dig into token.py.
+
+# XXX Fix docstring for flatten.
+
+# XXX Get rid of use of enum.
+"""
+Abstract syntax tree representation of a lambda expression.
+
+At this level, we don't deal with name binding; names
+are simply strings.
+"""
 import enum
 
 from church.token import (
@@ -19,6 +31,9 @@ AstToken = enum.Enum(
 class Ast:
     def flatten(self):
         """
+        # XXX Update this description! And do away with the
+        # unnecessary use of enum.
+
         Flatten an AST expression into a series of tokens.
 
         Useful for recursion-free equality testing, representation
