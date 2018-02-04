@@ -309,12 +309,12 @@ class UnparseState(enum.Enum):
     """
     States used by unparse.
     """
-    TOP = enum.auto()
-    LEADING = enum.auto()
-    TRAILING = enum.auto()
-    MIDDLE = enum.auto()
-    WRITE_LEFT = enum.auto()
-    WRITE_RIGHT = enum.auto()
+    TOP = 0
+    LEADING = 1
+    TRAILING = 2
+    MIDDLE = 3
+    WRITE_LEFT = 4
+    WRITE_RIGHT = 5
 
 
 #: Map from old to new state for Function arguments.
