@@ -1,3 +1,5 @@
+|build-status|
+
 The **church** package gives an interpreter for untyped lambda calculus.
 
 Here's an example session::
@@ -16,3 +18,8 @@ Here's an example session::
     (church) eval four
     \f x.f(f(f(f x)))
     (church) exit
+
+
+.. |build-status| image:: https://travis-ci.org/mdickinson/church.svg?branch=master
+   :target: https://travis-ci.org/mdickinson/church
+   :alt: Travis CI status
